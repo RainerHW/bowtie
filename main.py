@@ -7,8 +7,8 @@ import pdb
 
 import numpy as np
 import networkx as nx
-import matplotlib
-matplotlib.use('GTKAgg')
+# import matplotlib
+# matplotlib.use('GTKAgg')
 import matplotlib.pyplot as plt
 import prettyplotlib as ppl
 
@@ -38,7 +38,6 @@ class Graph(nx.DiGraph):
         sp = nx.all_pairs_shortest_path_length(self)
         inc = {n for n in self.nodes() if scc_node in sp[n]}
         inc -= scc
-
         outc = set()
         for n in scc:
             outc |= set(sp[n].keys())
@@ -67,6 +66,9 @@ class Graph(nx.DiGraph):
             else:
                 other.add(n)
         self.bow_tie = [inc, scc, outc, in_tendril, out_tendril, tube, other]
+
+        print ("Stats:\n inc is: %s\n scc is: %s\n out is: %s\n in_ten is: %s\n out_ten is: %s\n tube is: %s\n other is: %s\n" %(inc, scc, outc, in_tendril, out_tendril, tube, other))
+        
         self.bow_tie = [100 * len(x)/len(self) for x in self.bow_tie]
         zipped = zip(['inc', 'scc', 'outc', 'in_tendril', 'out_tendril',
                       'tube', 'other'], range(7))
@@ -107,17 +109,32 @@ class Plotting(object):
     def __init__(self, graphs):
         self.graphs = graphs
         self.styles = ['solid', 'dashed']
-        self.colors = ppl.set2
-        self.stackplot()
-        self.alluvial()
+        self.colors = ppl.colors.set2
+        #self.stackplot()
+        #self.alluvial()
+
+    def bowtieplot(self, bowtie_size):
+        print("bowtieplot called with size: %s") %bowtie_size
+        # get graphs out of graph collection
+        for i, gc in enumerate(self.graphs):
+            data = [graph.bow_tie for graph in gc]
+            for graph in gc:
+                nx.draw(graph)
+                plt.savefig("plots/bowtie_vis_" + bowtie_size + ".png")
+                plt.clf()
+        
+        print ("reached")
 
     def stackplot(self):
         """produce stackplots for the graphcollections"""
         fig, axes = plt.subplots(1, len(self.graphs), squeeze=False,
                                  figsize=(8 * len(self.graphs), 6))
+
         legend_proxies = []
         for i, gc in enumerate(self.graphs):
             data = [graph.bow_tie for graph in gc]
+            print ("i is %d") %i
+            print axes[0,0]
             polys = axes[0, i].stackplot(np.arange(1, 1 + len(data)),
                                          np.transpose(np.array(data)),
                                          baseline='zero', edgecolor='face')
