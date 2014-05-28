@@ -104,7 +104,27 @@ class TestPlotting(unittest.TestCase):
         graph = Graph()
 
         # build scc
+        graph = Graph()
         graph.add_edge(1, 2)
+        graph.add_edge(2, 3)
+        graph.add_edge(3, 1)
+
+        graph.add_edge(1, 0)
+
+        graph.add_edge(3, 4)
+        graph.add_edge(4, 5)
+        graph.add_edge(5, 6)
+        graph.add_edge(6, 4)
+
+        graph.add_edge(6, 7)
+
+        graph.add_edge(3, 9)
+        graph.add_edge(9, 10)
+        graph.add_edge(10, 11)
+        graph.add_edge(11, 7)
+
+        graph.add_edge(8, 7)
+        graph.add_edge(8, 12)
         # build in
         # build out
         self.call_plot_graph_with(graph, "medium")
@@ -119,9 +139,7 @@ class TestPlotting(unittest.TestCase):
         # build out
         self.call_plot_graph_with(graph, "large")
 
-    def call_plot_graph_with(self, graph, bowtie_size):
-        print("plot_graph called with bowtie_size %s") % bowtie_size
-        
+    def call_plot_graph_with(self, graph, bowtie_size):        
         graphs = []
         # create graphs collection instance 
         # is needed to create plotting instance
@@ -148,7 +166,7 @@ if __name__ == '__main__':
         
         p = TestPlotting('test_bowtie_plot_tiny')
         p.test_bowtie_plot_tiny()
-        p.test_bowtie_plot_small()
+        #p.test_bowtie_plot_small()
         #p.test_bowtie_plot_medium()
         #p.test_bowtie_plot_large()
 

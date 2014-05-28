@@ -10,6 +10,7 @@ import networkx as nx
 # import matplotlib
 # matplotlib.use('GTKAgg')
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import prettyplotlib as ppl
 
 
@@ -24,6 +25,7 @@ class Graph(nx.DiGraph):
         super(Graph, self).__init__()
         self.lc_asp, self.lc_diam = 0, 0
         self.bow_tie, self.bow_tie_dict, self.bow_tie_changes = 0, 0, []
+        self.bow_tie_nodes = 0
         if graph:
             self.add_nodes_from(graph)
             self.add_edges_from(graph.edges())
@@ -66,9 +68,8 @@ class Graph(nx.DiGraph):
             else:
                 other.add(n)
         self.bow_tie = [inc, scc, outc, in_tendril, out_tendril, tube, other]
-
-        print ("Stats:\n inc is: %s\n scc is: %s\n out is: %s\n in_ten is: %s\n out_ten is: %s\n tube is: %s\n other is: %s\n" %(inc, scc, outc, in_tendril, out_tendril, tube, other))
-        
+        self.bow_tie_nodes = self.bow_tie
+        #print ("Stats:\n inc is: %s\n scc is: %s\n out is: %s\n in_ten is: %s\n out_ten is: %s\n tube is: %s\n other is: %s\n" %(inc, scc, outc, in_tendril, out_tendril, tube, other))
         self.bow_tie = [100 * len(x)/len(self) for x in self.bow_tie]
         zipped = zip(['inc', 'scc', 'outc', 'in_tendril', 'out_tendril',
                       'tube', 'other'], range(7))
@@ -106,24 +107,157 @@ class GraphCollection(list):
 
 
 class Plotting(object):
+
     def __init__(self, graphs):
         self.graphs = graphs
         self.styles = ['solid', 'dashed']
         self.colors = ppl.colors.set2
+        self.bounds = {}    
         #self.stackplot()
         #self.alluvial()
 
     def bowtieplot(self, bowtie_size):
-        print("bowtieplot called with size: %s") %bowtie_size
+        #print("bowtieplot called with size: %s") %bowtie_size
         # get graphs out of graph collection
         for i, gc in enumerate(self.graphs):
             data = [graph.bow_tie for graph in gc]
             for graph in gc:
-                nx.draw(graph)
+                # remove axis legends
+                plt.axis('off')
+                fig = plt.gcf()
+                ax = fig.gca()
+                
+                ax = self.setUpBackground(graph, ax)
+
+                positions = {}
+                in_positions = self.calcInTrapezePositions(graph.bow_tie_nodes[0])
+                #for n in graph.nodes():
+                #    positions[n] = np.array([n/10-0.1, 1])
+                positions.update(in_positions)
+                print(in_positions)
+
+                nx.draw_networkx(graph, pos=positions, with_labels=False, ax=ax, nodelist=[5,6], edgelist=[])
+
                 plt.savefig("plots/bowtie_vis_" + bowtie_size + ".png")
                 plt.clf()
+                #self.bounds = {}
+                #print (graph.bow_tie_nodes)
+
+        #print ("reached")
+
+    def calcInTrapezePositions(self, in_nodes):
+        # todo: change depending on figure size and make constant
+        CONST_MAX_POINTS_HORIZONTALLY = "200"
+        CONST_MAX_POINTS_VERTICALL = "150"
+        positions = {}
+        in_left_x = self.bounds.get("in_left_x")
+        in_left_y = self.bounds.get("in_left_y")
+        in_right_x = self.bounds.get("in_right_x")
+        in_right_y = self.bounds.get("in_right_y")
+
+        # the 'height' of the IN Trapeze
+        x_range = in_right_x - in_left_x
+        # how many points can fit in it horizontally?
+        max_points = np.floor(int(CONST_MAX_POINTS_HORIZONTALLY) * x_range)
         
-        print ("reached")
+        # create 'side'-straight for trapeze
+        slope_m = ((in_left_y - in_right_y) / (in_left_x - in_right_x))
+        
+        for n in in_nodes:
+            x_coord_unscaled = random.randint(0, max_points)
+            # scale to trapeze height
+            x_coord = x_coord_unscaled / max_points * x_range + in_left_x
+            
+            # calculate corresponding MAX y to x (basic math straights)
+            max_y_coord = slope_m * (x_coord - in_left_x) + in_left_y
+            y_range = 2 * (max_y_coord - .5) # center_coordinate
+            y_start = 1 - max_y_coord
+            max_y_points = np.floor(int(CONST_MAX_POINTS_VERTICALL) * y_range)
+            y_coord_unscaled = random.randint(0, max_y_points)
+            y_coord = y_coord_unscaled / max_y_points * y_range + y_start
+            positions[n] = np.array([x_coord, y_coord])
+
+        return positions
+
+    def setUpBackground(self, graph, ax):
+        # component sizes in percent
+        in_c = graph.bow_tie[0]
+        scc_c = graph.bow_tie[1]
+        out_c = graph.bow_tie[2]
+        main_components = in_c + scc_c + out_c
+
+        in_c = in_c / main_components
+        scc_c = scc_c / main_components
+        out_c = out_c / main_components
+
+        bound_positions = {}
+
+        # scc circle
+        circle_radius = scc_c / 2
+        center_coordinate = .5
+        scc_circle = patches.Circle((center_coordinate, center_coordinate), circle_radius, facecolor='red')
+        
+        # IN-Trapeze
+        bottom_left_x  = 0
+        bottom_left_y  = .1 # todo: adjust according to size
+
+        top_left_x  = bottom_left_x
+        top_left_y  = bottom_left_y + (2 * (center_coordinate - bottom_left_y))
+    
+        bottom_right_x = center_coordinate - circle_radius + (circle_radius / 8) # addition for overlapping
+        top_right_x = bottom_right_x
+
+        top_right_y = 0.5 + np.sqrt(np.square(circle_radius) - np.square(bottom_right_x - 0.5))
+        bottom_right_y = center_coordinate - (top_right_y - center_coordinate)
+
+        in_trapeze_coordinates = np.array([[bottom_left_x, bottom_left_y],
+                                        [bottom_right_x, bottom_right_y],
+                                        [top_right_x, top_right_y],
+                                        [top_left_x, top_left_y]])
+
+        in_trapeze = patches.Polygon(in_trapeze_coordinates, closed=True, facecolor='yellow')
+        
+        # remember bounds for node placement
+        bound_positions["in_left_x"] = top_left_x
+        bound_positions["in_left_y"] = top_left_y
+        bound_positions["in_right_x"] = top_right_x
+        bound_positions["in_right_y"] = top_right_y
+
+        # OUT-Trapeze
+        bottom_right_x = 1
+        bottom_right_y = .1 #todo: adjust according to size
+
+        top_right_x = bottom_right_x
+        top_right_y = bottom_right_y + (2 * (center_coordinate - bottom_right_y))
+
+        bottom_left_x = center_coordinate + circle_radius - (circle_radius / 8)
+        top_left_x = bottom_left_x
+
+        top_left_y = 0.5 + np.sqrt(np.square(circle_radius) - np.square(bottom_left_x - 0.5)) #trouble?
+        bottom_left_y = center_coordinate - (top_left_y - center_coordinate)
+
+        out_trapeze_coordinates = np.array([[bottom_left_x, bottom_left_y],
+                                        [bottom_right_x, bottom_right_y],
+                                        [top_right_x, top_right_y],
+                                        [top_left_x, top_left_y]])
+        
+        out_trapeze = patches.Polygon(out_trapeze_coordinates, closed=True, facecolor='blue')
+
+        # remember bounds for node placement
+        bound_positions["out_left_x"] = top_left_x
+        bound_positions["out_left_y"] = top_left_y
+        bound_positions["out_right_x"] = top_right_x
+        bound_positions["out_right_y"] = top_right_y
+
+        #add values to class variable
+        self.bounds.update(bound_positions)
+
+        ax.add_patch(in_trapeze)
+        ax.add_patch(out_trapeze)
+        ax.add_patch(scc_circle)
+
+
+        return ax
 
     def stackplot(self):
         """produce stackplots for the graphcollections"""
@@ -133,8 +267,6 @@ class Plotting(object):
         legend_proxies = []
         for i, gc in enumerate(self.graphs):
             data = [graph.bow_tie for graph in gc]
-            print ("i is %d") %i
-            print axes[0,0]
             polys = axes[0, i].stackplot(np.arange(1, 1 + len(data)),
                                          np.transpose(np.array(data)),
                                          baseline='zero', edgecolor='face')
