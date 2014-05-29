@@ -131,9 +131,10 @@ class Plotting(object):
 
                 positions = {}
                 positions.update(self.randomNodePositionsInTrapezes(graph, 'in'))
+                positions.update(self.randomNodePositionInCircle(graph))
                 positions.update(self.randomNodePositionsInTrapezes(graph, 'out'))
 
-                nx.draw_networkx(graph, pos=positions, with_labels=False, ax=ax, nodelist=[5,6,7,8], edgelist=[])
+                nx.draw_networkx(graph, pos=positions, with_labels=False, ax=ax, edgelist=[])
 
                 plt.savefig("plots/bowtie_vis_" + bowtie_size + ".png")
                 plt.clf()
@@ -141,10 +142,21 @@ class Plotting(object):
                 #print (graph.bow_tie_nodes)
 
         #print ("reached")
+    def randomNodePositionInCircle(self, graph):
+        positions = {}
+        # SCC Nodes
+        nodes = graph.bow_tie_nodes[1]
+        circle_radius = self.bounds.get('scc_circle_radius')
+        
+        for n in nodes:
+            a = 2 * np.pi * random.random()
+            r = np.sqrt(random.random())
+            x_coord = (circle_radius * r) * np.cos(a) + .5 #circle_center_position
+            y_coord = (circle_radius * r) * np.sin(a) + .5 #circle_center_position
+            positions[n] = np.array([x_coord, y_coord])
+        return positions
 
     def randomNodePositionsInTrapezes(self, graph, component):
-        # todo: change depending on figure size and make constant
-
         if component == 'in':
             nodes = graph.bow_tie_nodes[0]
             in_left_x = self.bounds.get("in_left_x")
@@ -185,7 +197,6 @@ class Plotting(object):
             y_coord_unscaled = random.randint(0, max_y_points)
             y_coord = y_coord_unscaled / max_y_points * y_range + y_start
             positions[n] = np.array([x_coord, y_coord])
-
         return positions
 
     def setUpBackground(self, graph, ax):
@@ -203,10 +214,15 @@ class Plotting(object):
 
         # scc circle
         circle_radius = scc_c / 2
+        # remember circle_radius
+        bound_positions["scc_circle_radius"] = circle_radius
         center_coordinate = .5
-        scc_circle = patches.Circle((center_coordinate, center_coordinate), circle_radius, facecolor='red')
+        scc_circle = patches.Circle((center_coordinate, center_coordinate),
+                                     circle_radius,
+                                     facecolor='red')
         
-        # IN-Trapeze
+
+        # calculate IN-Trapeze coordinate
         bottom_left_x  = 0
         bottom_left_y  = .1 # todo: adjust according to size
 
@@ -224,7 +240,9 @@ class Plotting(object):
                                         [top_right_x, top_right_y],
                                         [top_left_x, top_left_y]])
 
-        in_trapeze = patches.Polygon(in_trapeze_coordinates, closed=True, facecolor='yellow')
+        in_trapeze = patches.Polygon(in_trapeze_coordinates,
+                                     closed=True,
+                                     facecolor='yellow')
         
         # remember bounds for node placement
         bound_positions["in_left_x"] = top_left_x
@@ -250,7 +268,9 @@ class Plotting(object):
                                         [top_right_x, top_right_y],
                                         [top_left_x, top_left_y]])
         
-        out_trapeze = patches.Polygon(out_trapeze_coordinates, closed=True, facecolor='blue')
+        out_trapeze = patches.Polygon(out_trapeze_coordinates,
+                                      closed=True,
+                                      facecolor='blue')
 
         # remember bounds for node placement
         bound_positions["out_left_x"] = top_left_x
@@ -264,7 +284,6 @@ class Plotting(object):
         ax.add_patch(in_trapeze)
         ax.add_patch(out_trapeze)
         ax.add_patch(scc_circle)
-
 
         return ax
 
