@@ -130,13 +130,10 @@ class Plotting(object):
                 ax = self.setUpBackground(graph, ax)
 
                 positions = {}
-                in_positions = self.calcInTrapezePositions(graph.bow_tie_nodes[0])
-                #for n in graph.nodes():
-                #    positions[n] = np.array([n/10-0.1, 1])
-                positions.update(in_positions)
-                print(in_positions)
+                positions.update(self.randomNodePositionsInTrapezes(graph, 'in'))
+                positions.update(self.randomNodePositionsInTrapezes(graph, 'out'))
 
-                nx.draw_networkx(graph, pos=positions, with_labels=False, ax=ax, nodelist=[5,6], edgelist=[])
+                nx.draw_networkx(graph, pos=positions, with_labels=False, ax=ax, nodelist=[5,6,7,8], edgelist=[])
 
                 plt.savefig("plots/bowtie_vis_" + bowtie_size + ".png")
                 plt.clf()
@@ -145,34 +142,46 @@ class Plotting(object):
 
         #print ("reached")
 
-    def calcInTrapezePositions(self, in_nodes):
+    def randomNodePositionsInTrapezes(self, graph, component):
         # todo: change depending on figure size and make constant
-        CONST_MAX_POINTS_HORIZONTALLY = "200"
-        CONST_MAX_POINTS_VERTICALL = "150"
-        positions = {}
-        in_left_x = self.bounds.get("in_left_x")
-        in_left_y = self.bounds.get("in_left_y")
-        in_right_x = self.bounds.get("in_right_x")
-        in_right_y = self.bounds.get("in_right_y")
 
-        # the 'height' of the IN Trapeze
+        if component == 'in':
+            nodes = graph.bow_tie_nodes[0]
+            in_left_x = self.bounds.get("in_left_x")
+            in_left_y = self.bounds.get("in_left_y")
+            in_right_x = self.bounds.get("in_right_x")
+            in_right_y = self.bounds.get("in_right_y")    
+        elif (component == 'out'):
+            nodes = graph.bow_tie_nodes[2]
+            in_left_x = self.bounds.get("out_left_x")
+            in_left_y = self.bounds.get("out_left_y")
+            in_right_x = self.bounds.get("out_right_x")
+            in_right_y = self.bounds.get("out_right_y")
+
+        max_points_horizontally = "200"
+        max_points_vertically = "150"
+        positions = {}
+
+        # the 'height' of the Trapeze
         x_range = in_right_x - in_left_x
         # how many points can fit in it horizontally?
-        max_points = np.floor(int(CONST_MAX_POINTS_HORIZONTALLY) * x_range)
+        points_in_range = np.floor(int(max_points_horizontally) * x_range)
         
-        # create 'side'-straight for trapeze
+        # get slope of the top leg of the trapeze
         slope_m = ((in_left_y - in_right_y) / (in_left_x - in_right_x))
         
-        for n in in_nodes:
-            x_coord_unscaled = random.randint(0, max_points)
-            # scale to trapeze height
-            x_coord = x_coord_unscaled / max_points * x_range + in_left_x
+
+        for n in nodes:
+            # get random x coord for every point
+            x_coord_unscaled = random.randint(0, points_in_range)
+            # scale int down to floats
+            x_coord = x_coord_unscaled / points_in_range * x_range + in_left_x
             
-            # calculate corresponding MAX y to x (basic math straights)
+            # calculate the y bounds for given x in trapeze
             max_y_coord = slope_m * (x_coord - in_left_x) + in_left_y
-            y_range = 2 * (max_y_coord - .5) # center_coordinate
+            y_range = 2 * (max_y_coord - .5) # .5 is center_coordinate
             y_start = 1 - max_y_coord
-            max_y_points = np.floor(int(CONST_MAX_POINTS_VERTICALL) * y_range)
+            max_y_points = np.floor(int(max_points_vertically) * y_range)
             y_coord_unscaled = random.randint(0, max_y_points)
             y_coord = y_coord_unscaled / max_y_points * y_range + y_start
             positions[n] = np.array([x_coord, y_coord])
