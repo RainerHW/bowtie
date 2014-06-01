@@ -126,6 +126,8 @@ class Plotting(object):
                 plt.axis('off')
                 fig = plt.gcf()
                 ax = fig.gca()
+                ax.set_xbound(lower=0, upper=1)
+                ax.set_ybound(lower=0, upper=1)
                 
                 ax = self.setUpBackground(graph, ax)
 
@@ -148,58 +150,61 @@ class Plotting(object):
         nodes = graph.bow_tie_nodes[1]
         circle_radius = self.bounds.get('scc_circle_radius')
         
+        # put nodes evenly into circle
         for n in nodes:
             a = 2 * np.pi * random.random()
             r = np.sqrt(random.random())
-            x_coord = (circle_radius * r) * np.cos(a) + .5 #circle_center_position
-            y_coord = (circle_radius * r) * np.sin(a) + .5 #circle_center_position
+            x_coord = (circle_radius * r) * np.cos(a) + .5 #circle center position
+            y_coord = (circle_radius * r) * np.sin(a) + .5 #circle center position
             positions[n] = np.array([x_coord, y_coord])
         return positions
 
     def randomNodePositionsInTrapezes(self, graph, component):
         if component == 'in':
             nodes = graph.bow_tie_nodes[0]
-            in_left_x = self.bounds.get("in_left_x")
-            in_left_y = self.bounds.get("in_left_y")
-            in_right_x = self.bounds.get("in_right_x")
-            in_right_y = self.bounds.get("in_right_y")    
+            left_x = self.bounds.get("in_left_x")
+            left_y = self.bounds.get("in_left_y")
+            right_x = self.bounds.get("in_right_x")
+            right_y = self.bounds.get("in_right_y")    
         elif (component == 'out'):
             nodes = graph.bow_tie_nodes[2]
-            in_left_x = self.bounds.get("out_left_x")
-            in_left_y = self.bounds.get("out_left_y")
-            in_right_x = self.bounds.get("out_right_x")
-            in_right_y = self.bounds.get("out_right_y")
+            left_x = self.bounds.get("out_left_x")
+            left_y = self.bounds.get("out_left_y")
+            right_x = self.bounds.get("out_right_x")
+            right_y = self.bounds.get("out_right_y")
 
         max_points_horizontally = "200"
         max_points_vertically = "150"
         positions = {}
 
         # the 'height' of the Trapeze
-        x_range = in_right_x - in_left_x
+        x_range = right_x - left_x
         # how many points can fit in it horizontally?
         points_in_range = np.floor(int(max_points_horizontally) * x_range)
         
         # get slope of the top leg of the trapeze
-        slope_m = ((in_left_y - in_right_y) / (in_left_x - in_right_x))
+        slope_m = ((left_y - right_y) / (left_x - right_x))
         
 
         for n in nodes:
             # get random x coord for every point
             x_coord_unscaled = random.randint(0, points_in_range)
             # scale int down to floats
-            x_coord = x_coord_unscaled / points_in_range * x_range + in_left_x
+            x_coord = x_coord_unscaled / points_in_range * x_range + left_x
             
             # calculate the y bounds for given x in trapeze
-            max_y_coord = slope_m * (x_coord - in_left_x) + in_left_y
+            max_y_coord = slope_m * (x_coord - left_x) + left_y
             y_range = 2 * (max_y_coord - .5) # .5 is center_coordinate
             y_start = 1 - max_y_coord
             max_y_points = np.floor(int(max_points_vertically) * y_range)
             y_coord_unscaled = random.randint(0, max_y_points)
             y_coord = y_coord_unscaled / max_y_points * y_range + y_start
             positions[n] = np.array([x_coord, y_coord])
+
         return positions
 
     def setUpBackground(self, graph, ax):
+
         # component sizes in percent
         in_c = graph.bow_tie[0]
         scc_c = graph.bow_tie[1]
@@ -213,78 +218,109 @@ class Plotting(object):
         bound_positions = {}
 
         # scc circle
-        circle_radius = scc_c / 2
+        circle_radius = 0.05 + (scc_c / 3)
         # remember circle_radius
         bound_positions["scc_circle_radius"] = circle_radius
         center_coordinate = .5
+        # starting with light red, increasing scc increses intensity
+        scaled_color_value = (250 - (250 * scc_c)) / 255 
+        face_color_rgb = 1, scaled_color_value, scaled_color_value
         scc_circle = patches.Circle((center_coordinate, center_coordinate),
                                      circle_radius,
-                                     facecolor='red')
+                                     facecolor=face_color_rgb)
         
 
-        # calculate IN-Trapeze coordinate
-        bottom_left_x  = 0
-        bottom_left_y  = .1 # todo: adjust according to size
+        # IN-Trapeze coordinates
+        in_bottom_left_x  = 0
+        in_bottom_left_y  = 0.3 - (0.2 * in_c)
 
-        top_left_x  = bottom_left_x
-        top_left_y  = bottom_left_y + (2 * (center_coordinate - bottom_left_y))
+        in_top_left_x = in_bottom_left_x
+        in_top_left_y = 1 - in_bottom_left_y
     
-        bottom_right_x = center_coordinate - circle_radius + (circle_radius / 8) # addition for overlapping
-        top_right_x = bottom_right_x
+        # bigger scc is smaller overlap
+        scc_overlap = circle_radius / 2  - (circle_radius / 2 * scc_c)
+        in_bottom_right_x = center_coordinate - circle_radius + scc_overlap
+        in_top_right_x = in_bottom_right_x
 
-        top_right_y = 0.5 + np.sqrt(np.square(circle_radius) - np.square(bottom_right_x - 0.5))
-        bottom_right_y = center_coordinate - (top_right_y - center_coordinate)
+        in_top_right_y = 0.5 + np.sqrt(np.square(circle_radius) - np.square(in_bottom_right_x - 0.5))
+        in_bottom_right_y = center_coordinate - (in_top_right_y - center_coordinate)
 
-        in_trapeze_coordinates = np.array([[bottom_left_x, bottom_left_y],
-                                        [bottom_right_x, bottom_right_y],
-                                        [top_right_x, top_right_y],
-                                        [top_left_x, top_left_y]])
+        # OUT-Trapeze coordiinates
+        out_bottom_right_x = 1
+        out_bottom_right_y = 0.3 - (0.2 * out_c)
+
+        out_top_right_x = out_bottom_right_x
+        out_top_right_y = 1 - out_bottom_right_y
+
+        out_bottom_left_x = center_coordinate + circle_radius - scc_overlap
+        out_top_left_x = out_bottom_left_x
+
+        out_top_left_y = 0.5 + np.sqrt(np.square(circle_radius) - np.square(out_bottom_left_x - 0.5)) #trouble?
+        out_bottom_left_y = center_coordinate - (out_top_left_y - center_coordinate)
+
+        # numpy arrays with coordinates to create polygon
+        in_trapeze_coordinates = np.array([[in_bottom_left_x, in_bottom_left_y],
+                                        [in_bottom_right_x, in_bottom_right_y],
+                                        [in_top_right_x, in_top_right_y],
+                                        [in_top_left_x, in_top_left_y]])
+
+        out_trapeze_coordinates = np.array([[out_bottom_left_x, out_bottom_left_y],
+                                        [out_bottom_right_x, out_bottom_right_y],
+                                        [out_top_right_x, out_top_right_y],
+                                        [out_top_left_x, out_top_left_y]])
+        
+        # settin up polygons
+        out_trapeze = patches.Polygon(out_trapeze_coordinates,
+                                      closed=True,
+                                      facecolor='green',
+                                      alpha=out_c)
 
         in_trapeze = patches.Polygon(in_trapeze_coordinates,
                                      closed=True,
-                                     facecolor='yellow')
+                                     facecolor='blue',
+                                     alpha=in_c)
         
-        # remember bounds for node placement
-        bound_positions["in_left_x"] = top_left_x
-        bound_positions["in_left_y"] = top_left_y
-        bound_positions["in_right_x"] = top_right_x
-        bound_positions["in_right_y"] = top_right_y
-
-        # OUT-Trapeze
-        bottom_right_x = 1
-        bottom_right_y = .1 #todo: adjust according to size
-
-        top_right_x = bottom_right_x
-        top_right_y = bottom_right_y + (2 * (center_coordinate - bottom_right_y))
-
-        bottom_left_x = center_coordinate + circle_radius - (circle_radius / 8)
-        top_left_x = bottom_left_x
-
-        top_left_y = 0.5 + np.sqrt(np.square(circle_radius) - np.square(bottom_left_x - 0.5)) #trouble?
-        bottom_left_y = center_coordinate - (top_left_y - center_coordinate)
-
-        out_trapeze_coordinates = np.array([[bottom_left_x, bottom_left_y],
-                                        [bottom_right_x, bottom_right_y],
-                                        [top_right_x, top_right_y],
-                                        [top_left_x, top_left_y]])
+        # create Percentage Labels: font size depending on component sizes
+        max_label_font_size = 76
+        # IN Component Label
+        x_range = in_bottom_right_x - in_bottom_left_x
+        in_label_x_coord = in_bottom_left_x + x_range / 2
         
-        out_trapeze = patches.Polygon(out_trapeze_coordinates,
-                                      closed=True,
-                                      facecolor='blue')
+        in_fontsize = max_label_font_size * in_c
+        plt.text(in_label_x_coord, 0.02, str(int(in_c * 100)) + "%",
+                 fontsize=in_fontsize,
+                 horizontalalignment='center')
+        
+        # OUT Component Label
+        x_range = out_bottom_right_x - out_bottom_left_x
+        out_label_x_coord = out_bottom_left_x + x_range / 2
+        out_fontsize = max_label_font_size * out_c
+        plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%",
+                 fontsize=out_fontsize,
+                 horizontalalignment='center')
+
+        # SCC Component Label
+        scc_fontsize = max_label_font_size * scc_c
+        plt.text(0.5, 0.02, str(int(scc_c*100)) + "%", fontsize=scc_fontsize,
+                 horizontalalignment='center')
 
         # remember bounds for node placement
-        bound_positions["out_left_x"] = top_left_x
-        bound_positions["out_left_y"] = top_left_y
-        bound_positions["out_right_x"] = top_right_x
-        bound_positions["out_right_y"] = top_right_y
+        bound_positions["in_left_x"] = in_top_left_x
+        bound_positions["in_left_y"] = in_top_left_y
+        bound_positions["in_right_x"] = in_top_right_x
+        bound_positions["in_right_y"] = in_top_right_y
 
-        #add values to class variable
+        bound_positions["out_left_x"] = out_top_left_x
+        bound_positions["out_left_y"] = out_top_left_y
+        bound_positions["out_right_x"] = out_top_right_x
+        bound_positions["out_right_y"] = out_top_right_y
+
+        # add values to class variable
         self.bounds.update(bound_positions)
 
         ax.add_patch(in_trapeze)
         ax.add_patch(out_trapeze)
-        ax.add_patch(scc_circle)
-
+        ax.add_patch(scc_circle) 
         return ax
 
     def stackplot(self):

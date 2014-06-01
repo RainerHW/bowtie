@@ -38,6 +38,83 @@ class TestGraph(unittest.TestCase):
                                          100/len(graph)])
 
 class TestPlotting(unittest.TestCase):
+    def test_bowtie_plot_generator:
+        
+
+    def test_bowtie_plot_bigIN(self):
+        print("--------------- Plotting Test Start: Big IN ---------------")
+
+        graph = Graph()
+        graph.add_edge(1,2)
+        graph.add_edge(3,2)
+        graph.add_edge(4,2)
+        graph.add_edge(5,2)
+        graph.add_edge(6,2)
+        graph.add_edge(7,2)
+        graph.add_edge(8,2)
+        graph.add_edge(9,2)
+        graph.add_edge(10,2)
+        graph.add_edge(11,2)
+        graph.add_edge(12,2)
+        graph.add_edge(13,2)
+        self.call_plot_graph_with(graph, "bigIN")
+
+    def test_bowtie_plot_bigSCC(self):
+        print("--------------- Plotting Test Start: Big SCC ---------------")
+
+        graph = Graph()
+        graph.add_edge(1,2)
+        graph.add_edge(2,3)
+        graph.add_edge(3,4)
+        graph.add_edge(4,5)
+        graph.add_edge(5,6)
+        graph.add_edge(6,7)
+        graph.add_edge(7,8)
+        graph.add_edge(8,9)
+        graph.add_edge(9,10)
+        graph.add_edge(10,11)
+        graph.add_edge(11,12)
+        graph.add_edge(12,13)
+        graph.add_edge(13,2)
+        self.call_plot_graph_with(graph, "bigSCC")
+
+    def test_bowtie_plot_growComponents(self):
+        print("--------------- Plotting Test Start: Evenly Distributed ---------------")
+
+        graph = Graph()
+        plotnumber = 0
+
+        #scc
+        print("creating SCC")
+        graph.add_edge(0,1)
+        graph.add_edge(1,2)
+        graph.add_edge(2,3)
+        graph.add_edge(3,4)
+        graph.add_edge(4,5)
+        graph.add_edge(5,6)
+        graph.add_edge(6,0)
+
+        print("Growing IN")
+        for x in range (7, 27):
+            graph.add_edge(x, 1)
+            plotnumber += 1
+            self.call_plot_graph_with(graph, "growComponents_" + str(plotnumber))
+
+        print("Growing OUT")
+        for x in range (27, 47):
+            graph.add_edge(2, x)
+            plotnumber += 1
+            self.call_plot_graph_with(graph, "growComponents_" + str(plotnumber))
+        
+        print("Growing SCC evenly")
+        for x in range (7, 27):
+            graph.add_edge(1, x)
+            plotnumber += 1
+            self.call_plot_graph_with(graph, "growComponents_" + str(plotnumber))
+            graph.add_edge(x+20, 2)
+            plotnumber += 1
+            self.call_plot_graph_with(graph, "growComponents_" + str(plotnumber))
+
     def test_bowtie_plot_tiny(self):
         print("--------------- Plotting Test Start: Tiny ---------------")
 
@@ -165,7 +242,10 @@ if __name__ == '__main__':
         # test plotting
         
         p = TestPlotting('test_bowtie_plot_tiny')
-        p.test_bowtie_plot_tiny()
+        #p.test_bowtie_plot_bigIN()
+        #p.test_bowtie_plot_bigSCC()
+        #p.test_bowtie_plot_tiny()
+        p.test_bowtie_plot_growComponents()
         #p.test_bowtie_plot_small()
         #p.test_bowtie_plot_medium()
         #p.test_bowtie_plot_large()
