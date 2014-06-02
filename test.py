@@ -224,9 +224,6 @@ class TestPlotting(unittest.TestCase):
         # build out
         self.call_plot_graph_with(graph, "large", 0)
 
-    def call_plot_graph_with(self, graph, testcase):
-        self.call_plot_graph_with(self, graph, testcase, "")
-
     def call_plot_graph_with(self, graph, testcase, iteration):        
         graphs = []
         # create graphs collection instance 
@@ -257,7 +254,7 @@ if __name__ == '__main__':
         #p.test_bowtie_plot_bigIN()
         #p.test_bowtie_plot_bigSCC()
         #p.test_bowtie_plot_tiny()
-        p.test_bowtie_plot_growComponents()
+        #p.test_bowtie_plot_growComponents()
         #p.test_bowtie_plot_small()
         #p.test_bowtie_plot_medium()
         #p.test_bowtie_plot_large()

@@ -223,7 +223,8 @@ class Plotting(object):
         bound_positions = {}
 
         # scc circle
-        circle_radius = 0.05 + (scc_c / 3)
+        # should not overlap with label, 0.05 and 3.5 ensure that
+        circle_radius = 0.05 + (scc_c / 3.5)
         # remember circle_radius
         bound_positions["scc_circle_radius"] = circle_radius
         # starting with light red, increasing scc increses intensity
@@ -289,29 +290,29 @@ class Plotting(object):
         # create Percentage Labels: font size depending on component sizes
         max_label_font_size = 60
         min_label_font_size = 10
-        font_size_range = 50
-        # IN Component Label
-        x_range = in_bottom_right_x - in_bottom_left_x
-        in_label_x_coord = in_bottom_left_x + x_range / 2
+        font_size_range = max_label_font_size - min_label_font_size
         
-        in_fontsize = min_label_font_size + (font_size_range * in_c)
+        # IN Component Label - show only if > 0%
         if (in_c):
+            x_range = in_bottom_right_x - in_bottom_left_x
+            in_label_x_coord = in_bottom_left_x + x_range / 2
+            in_fontsize = min_label_font_size + (font_size_range * in_c)
             plt.text(in_label_x_coord, 0.02, str(int(in_c * 100)) + "%",
                      fontsize=in_fontsize,
                      horizontalalignment='center')
         
-        # OUT Component Label
-        x_range = out_bottom_right_x - out_bottom_left_x
-        out_label_x_coord = out_bottom_left_x + x_range / 2
-        out_fontsize = min_label_font_size + (font_size_range * out_c)
+        # OUT Component Label - show only if > 0%
         if (out_c):
+            x_range = out_bottom_right_x - out_bottom_left_x
+            out_label_x_coord = out_bottom_left_x + x_range / 2
+            out_fontsize = min_label_font_size + (font_size_range * out_c)
             plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%",
                      fontsize=out_fontsize,
                      horizontalalignment='center')
 
-        # SCC Component Label
-        scc_fontsize = min_label_font_size + (font_size_range * scc_c)
+        # SCC Component Label - show only if > 0%
         if(scc_c):
+            scc_fontsize = min_label_font_size + (font_size_range * scc_c)
             plt.text(center_coordinate, 0.02, str(int(scc_c*100)) + "%",
                      fontsize=scc_fontsize, horizontalalignment='center')
 
