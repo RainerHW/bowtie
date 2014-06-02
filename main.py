@@ -16,6 +16,8 @@ import prettyplotlib as ppl
 
 # settings
 indices = (0, 24, 49, 74, 99)
+# canvas: bottom-left = (0,0); top-right = (1,1)
+center_coordinate = 0.5
 
 
 class Graph(nx.DiGraph):
@@ -116,16 +118,17 @@ class Plotting(object):
         #self.stackplot()
         #self.alluvial()
 
-    def bowtieplot(self, bowtie_size):
-        #print("bowtieplot called with size: %s") %bowtie_size
+    def bowtieplot(self, name, iteration):
+        #print("bowtieplot called with size: %s") %name
         # get graphs out of graph collection
         for i, gc in enumerate(self.graphs):
             data = [graph.bow_tie for graph in gc]
             for graph in gc:
-                # remove axis legends
+                # Remove Axis legends, make unscaleable and fixed bounds
                 plt.axis('off')
                 fig = plt.gcf()
                 ax = fig.gca()
+                ax.set_autoscale_on(False)
                 ax.set_xbound(lower=0, upper=1)
                 ax.set_ybound(lower=0, upper=1)
                 
@@ -135,15 +138,17 @@ class Plotting(object):
                 positions.update(self.randomNodePositionsInTrapezes(graph, 'in'))
                 positions.update(self.randomNodePositionInCircle(graph))
                 positions.update(self.randomNodePositionsInTrapezes(graph, 'out'))
+                
+                nx.draw_networkx(graph, pos=positions,
+                                        with_labels=False,
+                                        ax=ax,
+                                        edgelist=[],
+                                        node_size=100)
 
-                nx.draw_networkx(graph, pos=positions, with_labels=False, ax=ax, edgelist=[])
-
-                plt.savefig("plots/bowtie_vis_" + bowtie_size + ".png")
+                plt.savefig("plots/bowtie_vis_" + name + "_" + str(iteration) + ".png")
                 plt.clf()
-                #self.bounds = {}
-                #print (graph.bow_tie_nodes)
+                self.bounds = {} # todo: check influence
 
-        #print ("reached")
     def randomNodePositionInCircle(self, graph):
         positions = {}
         # SCC Nodes
@@ -194,7 +199,7 @@ class Plotting(object):
             
             # calculate the y bounds for given x in trapeze
             max_y_coord = slope_m * (x_coord - left_x) + left_y
-            y_range = 2 * (max_y_coord - .5) # .5 is center_coordinate
+            y_range = 2 * (max_y_coord - center_coordinate)
             y_start = 1 - max_y_coord
             max_y_points = np.floor(int(max_points_vertically) * y_range)
             y_coord_unscaled = random.randint(0, max_y_points)
@@ -221,7 +226,6 @@ class Plotting(object):
         circle_radius = 0.05 + (scc_c / 3)
         # remember circle_radius
         bound_positions["scc_circle_radius"] = circle_radius
-        center_coordinate = .5
         # starting with light red, increasing scc increses intensity
         scaled_color_value = (250 - (250 * scc_c)) / 255 
         face_color_rgb = 1, scaled_color_value, scaled_color_value
@@ -242,7 +246,8 @@ class Plotting(object):
         in_bottom_right_x = center_coordinate - circle_radius + scc_overlap
         in_top_right_x = in_bottom_right_x
 
-        in_top_right_y = 0.5 + np.sqrt(np.square(circle_radius) - np.square(in_bottom_right_x - 0.5))
+        in_top_right_y = center_coordinate + np.sqrt(np.square(circle_radius) \
+                         - np.square(in_bottom_right_x - center_coordinate))
         in_bottom_right_y = center_coordinate - (in_top_right_y - center_coordinate)
 
         # OUT-Trapeze coordiinates
@@ -255,7 +260,8 @@ class Plotting(object):
         out_bottom_left_x = center_coordinate + circle_radius - scc_overlap
         out_top_left_x = out_bottom_left_x
 
-        out_top_left_y = 0.5 + np.sqrt(np.square(circle_radius) - np.square(out_bottom_left_x - 0.5)) #trouble?
+        out_top_left_y = center_coordinate + np.sqrt(np.square(circle_radius) - \
+                         np.square(out_bottom_left_x - center_coordinate)) #trouble?
         out_bottom_left_y = center_coordinate - (out_top_left_y - center_coordinate)
 
         # numpy arrays with coordinates to create polygon
@@ -281,28 +287,33 @@ class Plotting(object):
                                      alpha=in_c)
         
         # create Percentage Labels: font size depending on component sizes
-        max_label_font_size = 76
+        max_label_font_size = 60
+        min_label_font_size = 10
+        font_size_range = 50
         # IN Component Label
         x_range = in_bottom_right_x - in_bottom_left_x
         in_label_x_coord = in_bottom_left_x + x_range / 2
         
-        in_fontsize = max_label_font_size * in_c
-        plt.text(in_label_x_coord, 0.02, str(int(in_c * 100)) + "%",
-                 fontsize=in_fontsize,
-                 horizontalalignment='center')
+        in_fontsize = min_label_font_size + (font_size_range * in_c)
+        if (in_c):
+            plt.text(in_label_x_coord, 0.02, str(int(in_c * 100)) + "%",
+                     fontsize=in_fontsize,
+                     horizontalalignment='center')
         
         # OUT Component Label
         x_range = out_bottom_right_x - out_bottom_left_x
         out_label_x_coord = out_bottom_left_x + x_range / 2
-        out_fontsize = max_label_font_size * out_c
-        plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%",
-                 fontsize=out_fontsize,
-                 horizontalalignment='center')
+        out_fontsize = min_label_font_size + (font_size_range * out_c)
+        if (out_c):
+            plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%",
+                     fontsize=out_fontsize,
+                     horizontalalignment='center')
 
         # SCC Component Label
-        scc_fontsize = max_label_font_size * scc_c
-        plt.text(0.5, 0.02, str(int(scc_c*100)) + "%", fontsize=scc_fontsize,
-                 horizontalalignment='center')
+        scc_fontsize = min_label_font_size + (font_size_range * scc_c)
+        if(scc_c):
+            plt.text(center_coordinate, 0.02, str(int(scc_c*100)) + "%",
+                     fontsize=scc_fontsize, horizontalalignment='center')
 
         # remember bounds for node placement
         bound_positions["in_left_x"] = in_top_left_x
