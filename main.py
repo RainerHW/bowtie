@@ -22,8 +22,10 @@ center_coordinate = 0.5
 
 class Graph(nx.DiGraph):
     def __init__(self, graph=None):
-        """Directed graph extended with bow tie functionality
-        parameter graph must be a directed networkx graph"""
+        """
+        Directed graph extended with bow tie functionality
+        parameter graph must be a directed networkx graph
+        """
         super(Graph, self).__init__()
         self.lc_asp, self.lc_diam = 0, 0
         self.bow_tie, self.bow_tie_dict, self.bow_tie_changes = 0, 0, []
@@ -33,7 +35,9 @@ class Graph(nx.DiGraph):
             self.add_edges_from(graph.edges())
 
     def stats(self, prev_bow_tie_dict=None):
-        """ calculate several statistical measures on the graphs"""
+        """
+        calculate several statistical measures on the graphs
+        """
         # Core, In and Out
         cc = nx.strongly_connected_components(self)
         lc = self.subgraph(cc[0])
@@ -71,7 +75,6 @@ class Graph(nx.DiGraph):
                 other.add(n)
         self.bow_tie = [inc, scc, outc, in_tendril, out_tendril, tube, other]
         self.bow_tie_nodes = self.bow_tie
-        #print ("Stats:\n inc is: %s\n scc is: %s\n out is: %s\n in_ten is: %s\n out_ten is: %s\n tube is: %s\n other is: %s\n" %(inc, scc, outc, in_tendril, out_tendril, tube, other))
         self.bow_tie = [100 * len(x)/len(self) for x in self.bow_tie]
         zipped = zip(['inc', 'scc', 'outc', 'in_tendril', 'out_tendril',
                       'tube', 'other'], range(7))
@@ -96,9 +99,11 @@ class GraphCollection(list):
         self.label = label
 
     def compute(self):
-        """compute statistics on all the graphs in the collection
+        """
+        compute statistics on all the graphs in the collection
         the bow tie changes are only computed between selected indices,
-        as indicated by the global variable indices"""
+        as indicated by the global variable indices
+        """
         bow_tie_dict = None
         for i, g in enumerate(self):
             if i in indices:
@@ -108,64 +113,105 @@ class GraphCollection(list):
                 g.stats()
 
 
+"""
+Class for Plotting: bowtieplot, stackplot, alluvial
+Argument:
+- object: A list of GraphCollections, stored in self.graphs
+"""
 class Plotting(object):
-
     def __init__(self, graphs):
         self.graphs = graphs
         self.styles = ['solid', 'dashed']
         self.colors = ppl.colors.set2
-        self.bounds = {}    
+        self.bounds = {}
         #self.stackplot()
         #self.alluvial()
 
     def bowtieplot(self, name, iteration):
-        #print("bowtieplot called with size: %s") %name
-        # get graphs out of graph collection
+        """
+        Plots graphs as a bowtie
+        Arguments:
+        - name: of testcase, used for output-filename
+        - iteration: extends the name in order to create animations
+        """
+        # get GraphCollection out of list
         for i, gc in enumerate(self.graphs):
-            data = [graph.bow_tie for graph in gc]
+            # get the graphs out of the graph collection: usually just one graph
             for graph in gc:
-                # Remove Axis legends, make unscaleable and fixed bounds
+                # Remove Axis legends
                 plt.axis('off')
                 fig = plt.gcf()
+                # get current axes
                 ax = fig.gca()
+                # make unscaleable and fixed bounds
+                # necessary for steady animation
                 ax.set_autoscale_on(False)
                 ax.set_xbound(lower=0, upper=1)
                 ax.set_ybound(lower=0, upper=1)
                 
-                ax = self.setUpBackground(graph, ax)
+                # set up the Components (IN- & Out-Trapeze, SCC-Circle)
+                ax = self.setUpComponentBackground(graph, ax)
 
+                # node positions within the component backgrounds
                 positions = {}
                 positions.update(self.randomNodePositionsInTrapezes(graph, 'in'))
                 positions.update(self.randomNodePositionInCircle(graph))
                 positions.update(self.randomNodePositionsInTrapezes(graph, 'out'))
+
+                # only plot the in, scc, and out nodes -> combine the sets
+                relevantNodes = graph.bow_tie_nodes[0].union(graph.bow_tie_nodes[1].union(graph.bow_tie_nodes[2]))
                 
-                nx.draw_networkx(graph, pos=positions,
+                # create subgraph with only the relevant nodes
+                subG = graph.subgraph(relevantNodes)
+                
+                # draw the graph/nodes; edges removed for clarity
+                nx.draw_networkx(subG, pos=positions,
                                         with_labels=False,
                                         ax=ax,
                                         edgelist=[],
                                         node_size=100)
-
-                plt.savefig("plots/bowtie_vis_" + name + "_" + str(iteration) + ".png")
+                # save to file using filename and iteration
+                plt.savefig("plots/bowtie_vis_" + name + "_" + str(iteration).zfill(3) + ".png")
                 plt.clf()
-                self.bounds = {} # todo: check influence
+
+                # reset the bounds since multiple graphs can be in the collection
+                self.bounds = {}
 
     def randomNodePositionInCircle(self, graph):
+        """
+        Creates random positions within the SCC-Circle
+        Argument:
+        - graph: the graph
+        Returns:
+        - positions: a dictionary holding position-tuples for each node
+        """
         positions = {}
+        
         # SCC Nodes
         nodes = graph.bow_tie_nodes[1]
         circle_radius = self.bounds.get('scc_circle_radius')
         
-        # put nodes evenly into circle
+        # put nodes evenly distributed into circle
         for n in nodes:
             a = 2 * np.pi * random.random()
             r = np.sqrt(random.random())
-            x_coord = (circle_radius * r) * np.cos(a) + .5 #circle center position
-            y_coord = (circle_radius * r) * np.sin(a) + .5 #circle center position
+            x_coord = (circle_radius * r) * np.cos(a) + center_coordinate #circle center position
+            y_coord = (circle_radius * r) * np.sin(a) + center_coordinate #circle center position
             positions[n] = np.array([x_coord, y_coord])
         return positions
 
     def randomNodePositionsInTrapezes(self, graph, component):
-        if component == 'in':
+        """
+        Creates random positions within a trapeze
+        Argument:
+        - graph: the graph
+        - component: either 'in' or 'out' trapeze
+        Returns:
+        - positions: a dictionary holding position-tuples for each node
+        """
+        # depending on component, the bounds of the specified trapeze are retrieved
+        # note: it is a isosceles trapeze, therfore two coordinates suffice
+        if (component == 'in'):
             nodes = graph.bow_tie_nodes[0]
             left_x = self.bounds.get("in_left_x")
             left_y = self.bounds.get("in_left_y")
@@ -178,80 +224,104 @@ class Plotting(object):
             right_x = self.bounds.get("out_right_x")
             right_y = self.bounds.get("out_right_y")
 
+        if len(nodes) is 0:
+            return {}
+        # define how many points fit onto the canvas
         max_points_horizontally = "200"
         max_points_vertically = "150"
+        
         positions = {}
-
-        # the 'height' of the Trapeze
+        # the 'height' of the Trapeze (the trapezes are lying on the side)
         x_range = right_x - left_x
+        
         # how many points can fit in it horizontally?
         points_in_range = np.floor(int(max_points_horizontally) * x_range)
         
         # get slope of the top leg of the trapeze
         slope_m = ((left_y - right_y) / (left_x - right_x))
         
-
+        # for every node in the component
         for n in nodes:
-            # get random x coord for every point
+            # get random x coordinate
             x_coord_unscaled = random.randint(0, points_in_range)
             # scale int down to floats
             x_coord = x_coord_unscaled / points_in_range * x_range + left_x
             
             # calculate the y bounds for given x in trapeze
+            # they vary for every x
             max_y_coord = slope_m * (x_coord - left_x) + left_y
-            y_range = 2 * (max_y_coord - center_coordinate)
             y_start = 1 - max_y_coord
+            y_range = max_y_coord - y_start
+            # scale max points to current range
             max_y_points = np.floor(int(max_points_vertically) * y_range)
+            # get y unscaled coord
             y_coord_unscaled = random.randint(0, max_y_points)
+            # scale it to our range
             y_coord = y_coord_unscaled / max_y_points * y_range + y_start
+            # add position
             positions[n] = np.array([x_coord, y_coord])
 
         return positions
 
-    def setUpBackground(self, graph, ax):
+    def setUpComponentBackground(self, graph, ax):
+        """
+        Sets up the IN, OUT, and SCC component of the bow tie
+        Argument:
+        - graph: the graph to use
+        - ax: the axes to plot on
+        Returns:
+        - ax: returns the axes which now holds the components
+        """
 
         # component sizes in percent
         in_c = graph.bow_tie[0]
         scc_c = graph.bow_tie[1]
         out_c = graph.bow_tie[2]
+        
+        # we only use the main components
         main_components = in_c + scc_c + out_c
 
+        # caluclate (new) percentage for each component
         in_c = in_c / main_components
         scc_c = scc_c / main_components
         out_c = out_c / main_components
 
+        # save component bounds in dictionary for later use (node placement)
         bound_positions = {}
 
-        # scc circle
-        # should not overlap with label, 0.05 and 3.5 ensure that
+        # SCC-Circle
+        # radius varies with size, should not overlap with label
         circle_radius = 0.05 + (scc_c / 3.5)
-        # remember circle_radius
-        bound_positions["scc_circle_radius"] = circle_radius
-        # starting with light red, increasing scc increses intensity
+    
+        # color varies with size, starting with light red increases intensity
         scaled_color_value = (250 - (250 * scc_c)) / 255 
         face_color_rgb = 1, scaled_color_value, scaled_color_value
         scc_circle = patches.Circle((center_coordinate, center_coordinate),
                                      circle_radius,
                                      facecolor=face_color_rgb)
         
-
         # IN-Trapeze coordinates
+        # x starts at boarder, y varies with size
         in_bottom_left_x  = 0
         in_bottom_left_y  = 0.3 - (0.2 * in_c)
 
+        # mirror over coordinate axis (which is as 0.5)
         in_top_left_x = in_bottom_left_x
         in_top_left_y = 1 - in_bottom_left_y
     
-        # bigger scc is smaller overlap
+        # The bigger the SCC is, the smaller the overlap
         scc_overlap = circle_radius / 2  - (circle_radius / 2 * scc_c)
+        
+        # the right x-es
         in_bottom_right_x = center_coordinate - circle_radius + scc_overlap
         in_top_right_x = in_bottom_right_x
 
+        #calculate intersection of trapeze and circle for the right x-es
         in_top_right_y = center_coordinate + np.sqrt(np.square(circle_radius) \
                          - np.square(in_bottom_right_x - center_coordinate))
-        in_bottom_right_y = center_coordinate - (in_top_right_y - center_coordinate)
+        in_bottom_right_y = 1 - in_top_right_y
 
-        # OUT-Trapeze coordiinates
+        # OUT-Trapeze coordiinates: like above, just mirrored
         out_bottom_right_x = 1
         out_bottom_right_y = 0.3 - (0.2 * out_c)
 
@@ -263,9 +333,9 @@ class Plotting(object):
 
         out_top_left_y = center_coordinate + np.sqrt(np.square(circle_radius) - \
                          np.square(out_bottom_left_x - center_coordinate)) #trouble?
-        out_bottom_left_y = center_coordinate - (out_top_left_y - center_coordinate)
+        out_bottom_left_y = 1 - out_top_left_y
 
-        # numpy arrays with coordinates to create polygon
+        # create numpy arrays with coordinates to create polygon
         in_trapeze_coordinates = np.array([[in_bottom_left_x, in_bottom_left_y],
                                         [in_bottom_right_x, in_bottom_right_y],
                                         [in_top_right_x, in_top_right_y],
@@ -276,7 +346,8 @@ class Plotting(object):
                                         [out_top_right_x, out_top_right_y],
                                         [out_top_left_x, out_top_left_y]])
         
-        # settin up polygons
+        # settin up polygons, alpha depends on the size of the component
+        # this makes bigger components more intense looking
         out_trapeze = patches.Polygon(out_trapeze_coordinates,
                                       closed=True,
                                       facecolor='green',
@@ -287,36 +358,37 @@ class Plotting(object):
                                      facecolor='blue',
                                      alpha=in_c)
         
-        # create Percentage Labels: font size depending on component sizes
+        # create Percentage Labels below components (if component > 0%)
+        # font size depending on component sizes
         max_label_font_size = 60
         min_label_font_size = 10
         font_size_range = max_label_font_size - min_label_font_size
         
-        # IN Component Label - show only if > 0%
+        # IN Component Label
         if (in_c):
             x_range = in_bottom_right_x - in_bottom_left_x
             in_label_x_coord = in_bottom_left_x + x_range / 2
             in_fontsize = min_label_font_size + (font_size_range * in_c)
             plt.text(in_label_x_coord, 0.02, str(int(in_c * 100)) + "%",
-                     fontsize=in_fontsize,
-                     horizontalalignment='center')
+                     fontsize=in_fontsize, horizontalalignment='center')
         
-        # OUT Component Label - show only if > 0%
+        # OUT Component Label
         if (out_c):
             x_range = out_bottom_right_x - out_bottom_left_x
             out_label_x_coord = out_bottom_left_x + x_range / 2
             out_fontsize = min_label_font_size + (font_size_range * out_c)
             plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%",
-                     fontsize=out_fontsize,
-                     horizontalalignment='center')
+                     fontsize=out_fontsize, horizontalalignment='center')
 
-        # SCC Component Label - show only if > 0%
+        # SCC Component Label
         if(scc_c):
             scc_fontsize = min_label_font_size + (font_size_range * scc_c)
-            plt.text(center_coordinate, 0.02, str(int(scc_c*100)) + "%",
+            plt.text(center_coordinate, 0.02, str(int(scc_c*100)) + "%", 
                      fontsize=scc_fontsize, horizontalalignment='center')
 
         # remember bounds for node placement
+        bound_positions["scc_circle_radius"] = circle_radius
+
         bound_positions["in_left_x"] = in_top_left_x
         bound_positions["in_left_y"] = in_top_left_y
         bound_positions["in_right_x"] = in_top_right_x
@@ -336,7 +408,10 @@ class Plotting(object):
         return ax
 
     def stackplot(self):
-        """produce stackplots for the graphcollections"""
+        """
+        produce stackplots for the graphcollections
+        [Created by Daniel Lamprecht]
+        """
         fig, axes = plt.subplots(1, len(self.graphs), squeeze=False,
                                  figsize=(8 * len(self.graphs), 6))
 
@@ -370,9 +445,12 @@ class Plotting(object):
         fig.savefig('plots/bowtie_stacked.pdf')
 
     def alluvial(self):
-        """ produce an alluvial diagram (sort of like a flow chart) for the
+        """
+        produce an alluvial diagram (sort of like a flow chart) for the
         bowtie membership changes for selected indices,
-        as indicated by the global variable indices"""
+        as indicated by the global variable indices
+        [Created by Daniel Lamprecht]
+        """
         ind = '    '  # indentation for the printed HTML and JavaScript files
         labels = ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
         dirpath = 'plots/alluvial/'
@@ -434,6 +512,10 @@ class Plotting(object):
                 outfile.write(template[0] + '"' + fname + '"' + template[1])
 
 
+"""
+Main: Creates Erdäs-Renyi graphs, computes the stats and plots them
+[Created by Daniel Lamprecht]
+"""
 if __name__ == '__main__':
     # create the graphs
     graphs = []
