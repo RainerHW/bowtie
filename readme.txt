@@ -17,6 +17,15 @@ Required Python modules:
     networkx [6] 
     unittest
 
+Run the code:
+    to run the code simply run:
+    "python test.py"
+
+Testcases:
+    Can be enabled or disabled in main() in test.py
+
+Further information:
+    See documentation.pdf
 
 [1] https://github.com/RainerHW/bowtie
 [2] http://matplotlib.org/downloads.html
