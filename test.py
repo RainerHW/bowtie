@@ -340,13 +340,13 @@ if __name__ == '__main__':
         
         """uncomment the test cases you want to run"""
         #p.test_bowtie_plot_generator() # needs to be fixed
-        #p.test_bowtie_plot_bigIN()
-        #p.test_bowtie_plot_bigSCC()
-        #p.test_bowtie_plot_growComponents()
-        #p.test_bowtie_plot_growAndShrinkComponents()
-        #p.test_bowtie_plot_tiny()
-        #p.test_bowtie_plot_small()
-        #p.test_bowtie_plot_medium()
+        p.test_bowtie_plot_bigIN()
+        p.test_bowtie_plot_bigSCC()
+        p.test_bowtie_plot_growComponents()
+        p.test_bowtie_plot_growAndShrinkComponents()
+        p.test_bowtie_plot_tiny()
+        p.test_bowtie_plot_small()
+        p.test_bowtie_plot_medium()
 
     # run all stats and plotting test cases
     test_stats()

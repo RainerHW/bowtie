@@ -134,7 +134,6 @@ class Plotting(object):
         - name: of testcase, used for output-filename
         - iteration: extends the name in order to create animations
         """
-        graph_counter = 1
         # get GraphCollection out of list
         for i, gc in enumerate(self.graphs):
             # get the graphs out of the graph collection: usually just one graph
@@ -172,12 +171,11 @@ class Plotting(object):
                                         edgelist=[],
                                         node_size=100)
                 # save to file using filename and iteration
-                plt.savefig("plots/bowtie_vis_" + name + "_" + str(iteration).zfill(3) + "index_" + str(graph_counter).zfill(3) + ".png")
+                plt.savefig("plots/bowtie_vis_" + name + "_" + str(iteration).zfill(3) + ".png")
                 plt.clf()
 
                 # reset the bounds since multiple graphs can be in the collection
                 self.bounds = {}
-                graph_counter += 1
 
     def setUpComponentBackground(self, graph, ax):
         """
