@@ -16,7 +16,7 @@ import prettyplotlib as ppl
 
 # settings
 indices = (0, 24, 49, 74, 99)
-# canvas: bottom-left = (0,0); top-right = (1,1)
+# canvas coordinates: bottom-left = (0,0); top-right = (1,1)
 center_coordinate = 0.5
 
 
@@ -134,6 +134,7 @@ class Plotting(object):
         - name: of testcase, used for output-filename
         - iteration: extends the name in order to create animations
         """
+        graph_counter = 1
         # get GraphCollection out of list
         for i, gc in enumerate(self.graphs):
             # get the graphs out of the graph collection: usually just one graph
@@ -171,97 +172,12 @@ class Plotting(object):
                                         edgelist=[],
                                         node_size=100)
                 # save to file using filename and iteration
-                plt.savefig("plots/bowtie_vis_" + name + "_" + str(iteration).zfill(3) + ".png")
+                plt.savefig("plots/bowtie_vis_" + name + "_" + str(iteration).zfill(3) + "index_" + str(graph_counter).zfill(3) + ".png")
                 plt.clf()
 
                 # reset the bounds since multiple graphs can be in the collection
                 self.bounds = {}
-
-    def randomNodePositionInCircle(self, graph):
-        """
-        Creates random positions within the SCC-Circle
-        Argument:
-        - graph: the graph
-        Returns:
-        - positions: a dictionary holding position-tuples for each node
-        """
-        positions = {}
-        
-        # SCC Nodes
-        nodes = graph.bow_tie_nodes[1]
-        circle_radius = self.bounds.get('scc_circle_radius')
-        
-        # put nodes evenly distributed into circle
-        for n in nodes:
-            a = 2 * np.pi * random.random()
-            r = np.sqrt(random.random())
-            x_coord = (circle_radius * r) * np.cos(a) + center_coordinate #circle center position
-            y_coord = (circle_radius * r) * np.sin(a) + center_coordinate #circle center position
-            positions[n] = np.array([x_coord, y_coord])
-        return positions
-
-    def randomNodePositionsInTrapezes(self, graph, component):
-        """
-        Creates random positions within a trapeze
-        Argument:
-        - graph: the graph
-        - component: either 'in' or 'out' trapeze
-        Returns:
-        - positions: a dictionary holding position-tuples for each node
-        """
-        # depending on component, the bounds of the specified trapeze are retrieved
-        # note: it is a isosceles trapeze, therfore two coordinates suffice
-        if (component == 'in'):
-            nodes = graph.bow_tie_nodes[0]
-            left_x = self.bounds.get("in_left_x")
-            left_y = self.bounds.get("in_left_y")
-            right_x = self.bounds.get("in_right_x")
-            right_y = self.bounds.get("in_right_y")    
-        elif (component == 'out'):
-            nodes = graph.bow_tie_nodes[2]
-            left_x = self.bounds.get("out_left_x")
-            left_y = self.bounds.get("out_left_y")
-            right_x = self.bounds.get("out_right_x")
-            right_y = self.bounds.get("out_right_y")
-
-        if len(nodes) is 0:
-            return {}
-        # define how many points fit onto the canvas
-        max_points_horizontally = "200"
-        max_points_vertically = "150"
-        
-        positions = {}
-        # the 'height' of the Trapeze (the trapezes are lying on the side)
-        x_range = right_x - left_x
-        
-        # how many points can fit in it horizontally?
-        points_in_range = np.floor(int(max_points_horizontally) * x_range)
-        
-        # get slope of the top leg of the trapeze
-        slope_m = ((left_y - right_y) / (left_x - right_x))
-        
-        # for every node in the component
-        for n in nodes:
-            # get random x coordinate
-            x_coord_unscaled = random.randint(0, points_in_range)
-            # scale int down to floats
-            x_coord = x_coord_unscaled / points_in_range * x_range + left_x
-            
-            # calculate the y bounds for given x in trapeze
-            # they vary for every x
-            max_y_coord = slope_m * (x_coord - left_x) + left_y
-            y_start = 1 - max_y_coord
-            y_range = max_y_coord - y_start
-            # scale max points to current range
-            max_y_points = np.floor(int(max_points_vertically) * y_range)
-            # get y unscaled coord
-            y_coord_unscaled = random.randint(0, max_y_points)
-            # scale it to our range
-            y_coord = y_coord_unscaled / max_y_points * y_range + y_start
-            # add position
-            positions[n] = np.array([x_coord, y_coord])
-
-        return positions
+                graph_counter += 1
 
     def setUpComponentBackground(self, graph, ax):
         """
@@ -316,7 +232,8 @@ class Plotting(object):
         in_bottom_right_x = center_coordinate - circle_radius + scc_overlap
         in_top_right_x = in_bottom_right_x
 
-        #calculate intersection of trapeze and circle for the right x-es
+        # calculate intersection of trapeze and circle for the right x-es
+        # using the Pythagorean theorem
         in_top_right_y = center_coordinate + np.sqrt(np.square(circle_radius) \
                          - np.square(in_bottom_right_x - center_coordinate))
         in_bottom_right_y = 1 - in_top_right_y
@@ -332,7 +249,7 @@ class Plotting(object):
         out_top_left_x = out_bottom_left_x
 
         out_top_left_y = center_coordinate + np.sqrt(np.square(circle_radius) - \
-                         np.square(out_bottom_left_x - center_coordinate)) #trouble?
+                         np.square(out_bottom_left_x - center_coordinate))
         out_bottom_left_y = 1 - out_top_left_y
 
         # create numpy arrays with coordinates to create polygon
@@ -406,6 +323,92 @@ class Plotting(object):
         ax.add_patch(out_trapeze)
         ax.add_patch(scc_circle) 
         return ax
+
+    def randomNodePositionsInTrapezes(self, graph, component):
+        """
+        Creates random positions within a trapeze
+        Argument:
+        - graph: the graph
+        - component: either 'in' or 'out' trapeze
+        Returns:
+        - positions: a dictionary holding position-tuples for each node
+        """
+        # depending on component, the bounds of the specified trapeze are retrieved
+        # note: it is a isosceles trapeze, therfore two coordinates suffice
+        if (component == 'in'):
+            nodes = graph.bow_tie_nodes[0]
+            left_x = self.bounds.get("in_left_x")
+            left_y = self.bounds.get("in_left_y")
+            right_x = self.bounds.get("in_right_x")
+            right_y = self.bounds.get("in_right_y")    
+        elif (component == 'out'):
+            nodes = graph.bow_tie_nodes[2]
+            left_x = self.bounds.get("out_left_x")
+            left_y = self.bounds.get("out_left_y")
+            right_x = self.bounds.get("out_right_x")
+            right_y = self.bounds.get("out_right_y")
+
+        if len(nodes) is 0:
+            return {}
+        # define how many points fit onto the canvas
+        max_points_horizontally = "200"
+        max_points_vertically = "150"
+        
+        positions = {}
+        # the 'height' of the Trapeze (the trapezes are lying on the side)
+        x_range = right_x - left_x
+        
+        # how many points can fit in it horizontally?
+        points_in_range = np.floor(int(max_points_horizontally) * x_range)
+        
+        # get slope of the top leg of the trapeze
+        slope_m = ((left_y - right_y) / (left_x - right_x))
+        
+        # for every node in the component
+        for n in nodes:
+            # get random x coordinate
+            x_coord_unscaled = random.randint(0, points_in_range)
+            # scale int down to floats
+            x_coord = x_coord_unscaled / points_in_range * x_range + left_x
+            
+            # calculate the y bounds for given x in trapeze
+            # they vary for every x
+            max_y_coord = slope_m * (x_coord - left_x) + left_y
+            y_start = 1 - max_y_coord
+            y_range = max_y_coord - y_start
+            # scale max points to current range
+            max_y_points = np.floor(int(max_points_vertically) * y_range)
+            # get y unscaled coord
+            y_coord_unscaled = random.randint(0, max_y_points)
+            # scale it to our range
+            y_coord = y_coord_unscaled / max_y_points * y_range + y_start
+            # add position
+            positions[n] = np.array([x_coord, y_coord])
+
+        return positions
+
+    def randomNodePositionInCircle(self, graph):
+        """
+        Creates random positions within the SCC-Circle
+        Argument:
+        - graph: the graph
+        Returns:
+        - positions: a dictionary holding position-tuples for each node
+        """
+        positions = {}
+        
+        # SCC Nodes
+        nodes = graph.bow_tie_nodes[1]
+        circle_radius = self.bounds.get('scc_circle_radius')
+        
+        # put nodes evenly distributed into circle
+        for n in nodes:
+            a = 2 * np.pi * random.random()
+            r = np.sqrt(random.random())
+            x_coord = (circle_radius * r) * np.cos(a) + center_coordinate #circle center position
+            y_coord = (circle_radius * r) * np.sin(a) + center_coordinate #circle center position
+            positions[n] = np.array([x_coord, y_coord])
+        return positions
 
     def stackplot(self):
         """
@@ -513,7 +516,7 @@ class Plotting(object):
 
 
 """
-Main: Creates Erdäs-Renyi graphs, computes the stats and plots them
+Main: Creates Erdös-Renyi graphs, computes the stats and plots them
 [Created by Daniel Lamprecht]
 """
 if __name__ == '__main__':

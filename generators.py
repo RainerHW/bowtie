@@ -12,21 +12,29 @@ from main import Graph
 from main import Plotting
 from main import GraphCollection
 
+from test import TestPlotting
 
 def barabasi_albert_graph_directed(n, m):
 	if m < 1 or  m >=n:
 		raise nx.NetworkXError("Barabasi-Albert network must have m>=1 and m<n, m=%d,n=%d"%(m,n))
-	G = nx.DiGraph()
-	G.add_nodes_from(range(n))
-	G.name="barabasi_albert_graph(%s,%s)"%(n,m)
+	graphlist = []
+	graph = Graph()
+	gc = GraphCollection(barabasi_albert_graph_directed)
+	graph.add_nodes_from(range(n))
+	graph.name="barabasi_albert_graph(%s,%s)"%(n,m)
 	targets=list(range(n))
 	for i in range(0, n, 1):
 		rand = random.sample(targets, m)
 		while i in rand:
 			rand = random.sample(targets, m)
-		G.add_edges_from(zip([i]*m, rand))
-	return G
+		graph.add_edges_from(zip([i]*m, rand))
+		gc.append(graph)
+		graphlist.append(graph)
 
+		testP = TestPlotting('test_bowtie_plot_generator')
+		testP.call_plot_graph_with(graph, 'test_bowtie_plot_generator', i)
+
+	return graphlist
 
 def watts_strogatz_graph_directed(n, k, p):
 	if k>=n/2:

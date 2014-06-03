@@ -49,10 +49,27 @@ class TestPlotting(unittest.TestCase):
         """
         Creates Graphs using the generator class
         """
-        n = 500
-        m = 1
-        graph = generators.barabasi_albert_graph_directed(n, m)
-        self.call_plot_graph_with(Graph(graph), "barabasi_albert_graph_directed")
+        n = 100 # iterations
+        m = 2
+        
+        graphlist = generators.barabasi_albert_graph_directed(n, m)
+        #for i in range(0, 99):
+            #print(graphlist[i].edges())
+            #self.call_plot_graph_with(graphlist[i], "barabasiGroow", i)
+        """
+        gc = generators.barabasi_albert_graph_directed(n, m)
+
+        graphs = []
+        graphs.append(gc)
+
+        #compute statistics for graphs
+        for g in graphs:
+            g.compute()
+
+        plotting = Plotting(graphs)
+        plotting.bowtieplot("BarabasiGrow", 0)
+        """
+
 
     def test_bowtie_plot_bigIN(self):
         """
@@ -287,7 +304,7 @@ class TestPlotting(unittest.TestCase):
         # build out
         self.call_plot_graph_with(graph, "medium", 0)
         print("Plotting Test End: Medium Graph")
-    
+
     def call_plot_graph_with(self, graph, testcase, iteration):        
         """
         Helper Method: Create the GC, Plotting object and call bowtieplot
@@ -322,11 +339,11 @@ if __name__ == '__main__':
         p = TestPlotting('test_bowtie_plot_tiny')
         
         """uncomment the test cases you want to run"""
-        #p.test_bowtie_plot_generator()
+        #p.test_bowtie_plot_generator() # needs to be fixed
         #p.test_bowtie_plot_bigIN()
         #p.test_bowtie_plot_bigSCC()
         #p.test_bowtie_plot_growComponents()
-        p.test_bowtie_plot_growAndShrinkComponents()
+        #p.test_bowtie_plot_growAndShrinkComponents()
         #p.test_bowtie_plot_tiny()
         #p.test_bowtie_plot_small()
         #p.test_bowtie_plot_medium()
