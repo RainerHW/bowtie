@@ -15,7 +15,7 @@ import prettyplotlib as ppl
 
 
 # settings
-indices = (0, 24, 49, 74, 99)
+indices = (0, 0) #, 24, 49, 74, 99)
 # canvas coordinates: bottom-left = (0,0); top-right = (1,1)
 center_coordinate = 0.5
 
@@ -88,6 +88,8 @@ class Graph(nx.DiGraph):
         if prev_bow_tie_dict:
             self.bow_tie_changes = np.zeros((len(c2a), len(c2a)))
             for n in self:
+                # out of bounds access when nodes are added to the graph
+                # enable global indices again when working on it
                 self.bow_tie_changes[prev_bow_tie_dict[n],
                                      self.bow_tie_dict[n]] += 1
             self.bow_tie_changes /= len(self)
@@ -112,7 +114,6 @@ class GraphCollection(list):
             else:
                 g.stats()
 
-
 """
 Class for Plotting: bowtieplot, stackplot, alluvial
 Argument:
@@ -124,24 +125,27 @@ class Plotting(object):
         self.styles = ['solid', 'dashed']
         self.colors = ppl.colors.set2
         self.bounds = {}
+        self.scc_color = 0
+        self.inc_alpha = 0
+        self.out_alpha = 0
         #self.stackplot()
         #self.alluvial()
 
-    def bowtieplot(self, name, iteration):
+    def bowtieplot(self, name):
         """
         Plots graphs as a bowtie
         Arguments:
         - name: of testcase, used for output-filename
-        - iteration: extends the name in order to create animations
         """
         # get GraphCollection out of list
+        graphcounter = 0
         for i, gc in enumerate(self.graphs):
             # get the graphs out of the graph collection: usually just one graph
             for graph in gc:
                 # Remove Axis legends
                 plt.axis('off')
                 fig = plt.gcf()
-                # get current axes
+                # get current axis
                 ax = fig.gca()
                 # make unscaleable and fixed bounds
                 # necessary for steady animation
@@ -160,31 +164,54 @@ class Plotting(object):
 
                 # only plot the in, scc, and out nodes -> combine the sets
                 relevantNodes = graph.bow_tie_nodes[0].union(graph.bow_tie_nodes[1].union(graph.bow_tie_nodes[2]))
-                
+
                 # create subgraph with only the relevant nodes
                 subG = graph.subgraph(relevantNodes)
                 
                 # draw the graph/nodes; edges removed for clarity
+                """
                 nx.draw_networkx(subG, pos=positions,
-                                        with_labels=False,
+                                        with_labels=True,
                                         ax=ax,
-                                        edgelist=[],
+                                        #edgelist=[],
                                         node_size=100)
-                # save to file using filename and iteration
-                plt.savefig("plots/bowtie_vis_" + name + "_" + str(iteration).zfill(3) + ".png")
+                """
+                nx.draw_networkx_nodes(subG, pos=positions, with_labels=True, node_size=100)
+                nx.draw_networkx_edges(subG, pos=positions, arrows=False)
+                
+                # TODO ? move this into setUpBackground ?
+                inc_nodes = "inc:   " + ", ".join(str(node) for node in graph.bow_tie_nodes[0])
+                scc_nodes = "scc:   " + ", ".join(str(node) for node in graph.bow_tie_nodes[1])
+                out_nodes = "out:   " + ", ".join(str(node) for node in graph.bow_tie_nodes[2])
+
+                inc_patch = patches.Patch(color='blue', label=inc_nodes, alpha=self.inc_alpha)
+                scc_patch = patches.Patch(color=self.scc_color, label=scc_nodes)
+                out_patch = patches.Patch(color='green', label=out_nodes, alpha=self.out_alpha )
+                plt.legend(handles=[inc_patch, scc_patch, out_patch])
+
+                # save to file using filename and graph number
+                plt.savefig("plots/bowtie_vis_" + name + "_" + str(graphcounter).zfill(3) + ".png")
                 plt.clf()
 
                 # reset the bounds since multiple graphs can be in the collection
                 self.bounds = {}
+                graphcounter += 1
+                labels = ['inc: ', 'scc: ', 'outc: ', 'in_tendril: ', 'out_tendril: ', 'tube: ', 'other: ']
+                
+
+                """
+                for label, component in zip(labels, graph.bow_tie_nodes):
+                    print label + ", ".join(str(node) for node in component)
+                """
 
     def setUpComponentBackground(self, graph, ax):
         """
         Sets up the IN, OUT, and SCC component of the bow tie
         Argument:
         - graph: the graph to use
-        - ax: the axes to plot on
+        - ax: the axis to plot on
         Returns:
-        - ax: returns the axes which now holds the components
+        - ax: returns the axis which now holds the components
         """
 
         # component sizes in percent
@@ -200,6 +227,9 @@ class Plotting(object):
         scc_c = scc_c / main_components
         out_c = out_c / main_components
 
+        self.inc_alpha = in_c
+        self.out_alpha = out_c
+
         # save component bounds in dictionary for later use (node placement)
         bound_positions = {}
 
@@ -212,8 +242,10 @@ class Plotting(object):
         face_color_rgb = 1, scaled_color_value, scaled_color_value
         scc_circle = patches.Circle((center_coordinate, center_coordinate),
                                      circle_radius,
-                                     facecolor=face_color_rgb)
-        
+                                     facecolor=face_color_rgb,
+                                     zorder=0.5) # zorder of edges is 1, move circle behind them
+        self.scc_color = face_color_rgb
+
         # IN-Trapeze coordinates
         # x starts at boarder, y varies with size
         in_bottom_left_x  = 0
@@ -266,12 +298,14 @@ class Plotting(object):
         out_trapeze = patches.Polygon(out_trapeze_coordinates,
                                       closed=True,
                                       facecolor='green',
-                                      alpha=out_c)
+                                      alpha=out_c,
+                                      zorder=0)
 
         in_trapeze = patches.Polygon(in_trapeze_coordinates,
                                      closed=True,
                                      facecolor='blue',
-                                     alpha=in_c)
+                                     alpha=in_c,
+                                     zorder=0)
         
         # create Percentage Labels below components (if component > 0%)
         # font size depending on component sizes
@@ -316,7 +350,7 @@ class Plotting(object):
 
         # add values to class variable
         self.bounds.update(bound_positions)
-
+        
         ax.add_patch(in_trapeze)
         ax.add_patch(out_trapeze)
         ax.add_patch(scc_circle) 
@@ -338,13 +372,15 @@ class Plotting(object):
             left_x = self.bounds.get("in_left_x")
             left_y = self.bounds.get("in_left_y")
             right_x = self.bounds.get("in_right_x")
-            right_y = self.bounds.get("in_right_y")    
+            right_y = self.bounds.get("in_right_y")
         elif (component == 'out'):
             nodes = graph.bow_tie_nodes[2]
             left_x = self.bounds.get("out_left_x")
             left_y = self.bounds.get("out_left_y")
             right_x = self.bounds.get("out_right_x")
             right_y = self.bounds.get("out_right_y")
+
+        circle_radius = self.bounds.get("scc_circle_radius")
 
         if len(nodes) is 0:
             return {}
@@ -364,24 +400,28 @@ class Plotting(object):
         
         # for every node in the component
         for n in nodes:
-            # get random x coordinate
-            x_coord_unscaled = random.randint(0, points_in_range)
-            # scale int down to floats
-            x_coord = x_coord_unscaled / points_in_range * x_range + left_x
-            
-            # calculate the y bounds for given x in trapeze
-            # they vary for every x
-            max_y_coord = slope_m * (x_coord - left_x) + left_y
-            y_start = 1 - max_y_coord
-            y_range = max_y_coord - y_start
-            # scale max points to current range
-            max_y_points = np.floor(int(max_points_vertically) * y_range)
-            # get y unscaled coord
-            y_coord_unscaled = random.randint(0, max_y_points)
-            # scale it to our range
-            y_coord = y_coord_unscaled / max_y_points * y_range + y_start
-            # add position
-            positions[n] = np.array([x_coord, y_coord])
+            while True:
+                # get random x coordinate
+                x_coord_unscaled = random.randint(0, points_in_range)
+                # scale int down to floats
+                x_coord = x_coord_unscaled / points_in_range * x_range + left_x
+                
+                # calculate the y bounds for given x in trapeze
+                # they vary for every x
+                max_y_coord = slope_m * (x_coord - left_x) + left_y
+                y_start = 1 - max_y_coord
+                y_range = max_y_coord - y_start
+                # scale max points to current range
+                max_y_points = np.floor(int(max_points_vertically) * y_range)
+                # get y unscaled coord
+                y_coord_unscaled = random.randint(0, max_y_points)
+                # scale it to our range
+                y_coord = y_coord_unscaled / max_y_points * y_range + y_start
+                # add position
+                positions[n] = np.array([x_coord, y_coord])
+                coord_in_scc_circle = np.power((x_coord - center_coordinate), 2) + np.power((y_coord - center_coordinate), 2) <= np.power(circle_radius, 2)
+                if not coord_in_scc_circle:
+                    break;
 
         return positions
 
