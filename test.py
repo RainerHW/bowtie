@@ -2,7 +2,7 @@
 
 from __future__ import division, unicode_literals
 import unittest
-import generators
+#import generators
 import copy
 import networkx as nx
 import time as time
@@ -47,33 +47,9 @@ class TestGraph(unittest.TestCase):
 """
 Class for Testing: Plotting 
 """
+
+
 class TestPlotting(unittest.TestCase):
-    def test_bowtie_plot_generator(self):
-        """
-        Creates Graphs using the generator class
-        """
-        n = 100 # iterations
-        m = 2
-        
-        graphlist = generators.barabasi_albert_graph_directed(n, m)
-
-        #for i in range(0, n-1):
-            #self.plot_graph(graphlist[i], "barabasiGroow", i)
-        
-        """
-        gc = generators.barabasi_albert_graph_directed(n, m)
-
-        graphs = []
-        graphs.append(gc)
-
-        #compute statistics for graphs
-        for g in graphs:
-            g.compute()
-
-        plotting = Plotting(graphs)
-        plotting.bowtieplot("BarabasiGrow", 0)
-        """
-
     def test_bowtie_plot_tiny(self):
         print("Plotting Test Start:\tTiny Graph")
         start_time = time.time()
@@ -146,21 +122,36 @@ class TestPlotting(unittest.TestCase):
 
         graph = Graph()
         # build in
+        graph.add_edge(0, 1)
         graph.add_edge(1, 2)
         graph.add_edge(2, 3)
         graph.add_edge(3, 1)
+        graph.add_edge(16, 1)
 
         graph.add_edge(1, 0)
 
         # build scc
+        graph.add_edge(2, 5)
         graph.add_edge(3, 4)
+        graph.add_edge(3, 6)
         graph.add_edge(4, 5)
         graph.add_edge(5, 6)
+        graph.add_edge(5, 7)
         graph.add_edge(6, 4)
+        graph.add_edge(2, 13)
+        graph.add_edge(15, 6)
+        graph.add_edge(4, 15)
+        graph.add_edge(13, 15)
+        graph.add_edge(4, 13)
 
         # build out
         graph.add_edge(6, 7)
+        graph.add_edge(13, 14)
+        graph.add_edge(14, 17)
+        graph.add_edge(14, 18)
+        graph.add_edge(17, 18)
 
+        # build tube
         graph.add_edge(3, 9)
         graph.add_edge(9, 10)
         graph.add_edge(10, 11)
@@ -496,16 +487,16 @@ if __name__ == '__main__':
         
         """uncomment the test cases you want to run"""
         #p.test_bowtie_plot_generator()
-        p.test_bowtie_plot_tiny()
-        p.test_bowtie_plot_small()
+        #p.test_bowtie_plot_tiny()
+        #p.test_bowtie_plot_small()
         p.test_bowtie_plot_medium()
-        p.test_bowtie_plot_bigIN()
-        p.test_bowtie_plot_bigSCC()
-        p.test_bowtie_plot_growIN()
-        p.test_bowtie_plot_growComponents()
-        p.test_bowtie_plot_growAndShrinkComponents()
-        p.test_bowtie_plot_growAndShrinkComponentsWithObjectCopy()
-        p.test_bowtie_plot_networkx_generators()
+        #p.test_bowtie_plot_bigIN()
+        #p.test_bowtie_plot_bigSCC()
+        #p.test_bowtie_plot_growIN()
+        #p.test_bowtie_plot_growComponents()
+        #p.test_bowtie_plot_growAndShrinkComponents()
+        #p.test_bowtie_plot_growAndShrinkComponentsWithObjectCopy()
+        #p.test_bowtie_plot_networkx_generators()
 
     # run all stats and plotting test cases
     test_stats()
