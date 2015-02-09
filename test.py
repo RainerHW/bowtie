@@ -160,9 +160,67 @@ class TestPlotting(unittest.TestCase):
         graph.add_edge(8, 7)
         graph.add_edge(8, 12)
 
+        graph.add_edge(16, 19)
+
         self.plot_graph(graph, "medium")
         duration = (time.time() - start_time)
         print("Plotting Test End:\tMedium Graph\t(%.2fs)" %duration)
+
+    def test_bowtie_plot_medium_gt(self):
+        print("Plotting Test Start:\tMedium Graph (GT)")
+        start_time = time.time()
+
+        graph = Graph()
+        vList = graph.add_vertex(20)
+
+        # build in
+        graph.add_edge(graph.vertex(0), graph.vertex(1))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+        graph.add_edge(graph.vertex(3), graph.vertex(1))
+        graph.add_edge(graph.vertex(16), graph.vertex(1))
+
+        graph.add_edge(graph.vertex(1), graph.vertex(0))
+
+        # build scc
+        graph.add_edge(graph.vertex(2), graph.vertex(5))
+        graph.add_edge(graph.vertex(3), graph.vertex(4))
+        graph.add_edge(graph.vertex(3), graph.vertex(6))
+        graph.add_edge(graph.vertex(4), graph.vertex(5))
+        graph.add_edge(graph.vertex(5), graph.vertex(6))
+        graph.add_edge(graph.vertex(5), graph.vertex(7))
+        graph.add_edge(graph.vertex(6), graph.vertex(4))
+        graph.add_edge(graph.vertex(2), graph.vertex(13))
+        graph.add_edge(graph.vertex(15), graph.vertex(6))
+        graph.add_edge(graph.vertex(4), graph.vertex(15))
+        graph.add_edge(graph.vertex(13), graph.vertex(15))
+        graph.add_edge(graph.vertex(4), graph.vertex(13))
+
+        # build out
+        graph.add_edge(graph.vertex(6), graph.vertex(7))
+        graph.add_edge(graph.vertex(13), graph.vertex(14))
+        graph.add_edge(graph.vertex(14), graph.vertex(17))
+        graph.add_edge(graph.vertex(14), graph.vertex(18))
+        graph.add_edge(graph.vertex(17), graph.vertex(18))
+
+        # build tube
+        graph.add_edge(graph.vertex(3), graph.vertex(9))
+        graph.add_edge(graph.vertex(9), graph.vertex(10))
+        graph.add_edge(graph.vertex(10), graph.vertex(11))
+        graph.add_edge(graph.vertex(11), graph.vertex(7))
+
+        # Out-Tendril
+        graph.add_edge(graph.vertex(8), graph.vertex(7))
+
+        # Other
+        graph.add_edge(graph.vertex(8), graph.vertex(12))
+
+        # In-Tendril
+        graph.add_edge(graph.vertex(16), graph.vertex(19))
+
+        self.plot_graph(graph, "medium")
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\tMedium Graph (GT)\t(%.2fs)" %duration)
 
     def test_bowtie_plot_bigIN(self):
         """
@@ -449,10 +507,330 @@ class TestPlotting(unittest.TestCase):
         self.plot_graph_collection(graphs, name)
         duration = (time.time() - start_time)
         print("Plotting Test End:\tnx Generators\t(%.2fs)" %duration)
+    
+    def test_bowtie_plot_10_nodes_gt(self):
+        print("Plotting Test Start:\t10 Nodes (GT)")
+        start_time = time.time()
+
+        graph = Graph()
+        vList = graph.add_vertex(10)
+
+        # IN-Layers
+        graph.add_edge(graph.vertex(0), graph.vertex(1))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(1), graph.vertex(3))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+        graph.add_edge(graph.vertex(3), graph.vertex(4))
+        graph.add_edge(graph.vertex(4), graph.vertex(5))
+        graph.add_edge(graph.vertex(5), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(6))
+        graph.add_edge(graph.vertex(6), graph.vertex(7))
+        graph.add_edge(graph.vertex(7), graph.vertex(5))
+        graph.add_edge(graph.vertex(7), graph.vertex(8))
+        graph.add_edge(graph.vertex(7), graph.vertex(9))
+        graph.add_edge(graph.vertex(8), graph.vertex(6))
+        graph.add_edge(graph.vertex(8), graph.vertex(9))
+
+        self.plot_graph(graph, "10_nodes_gt")
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\t10 Nodes (GT)\t(%.2fs)" %duration)
+
+    def test_bowtie_plot_20_nodes_gt(self):
+        print("Plotting Test Start:\t20 Nodes (GT)")
+        start_time = time.time()
+
+        graph = Graph()
+        vList = graph.add_vertex(20)
+
+        # IN-Layers
+        graph.add_edge(graph.vertex(0), graph.vertex(2))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+        graph.add_edge(graph.vertex(2), graph.vertex(4))
+
+        graph.add_edge(graph.vertex(3), graph.vertex(5))
+        graph.add_edge(graph.vertex(3), graph.vertex(6))
+        graph.add_edge(graph.vertex(4), graph.vertex(5))
+        graph.add_edge(graph.vertex(5), graph.vertex(7))
+        graph.add_edge(graph.vertex(6), graph.vertex(8))
+        graph.add_edge(graph.vertex(7), graph.vertex(6))
+        graph.add_edge(graph.vertex(7), graph.vertex(9))
+        graph.add_edge(graph.vertex(7), graph.vertex(10))
+        graph.add_edge(graph.vertex(7), graph.vertex(12))
+        graph.add_edge(graph.vertex(8), graph.vertex(5))
+        graph.add_edge(graph.vertex(8), graph.vertex(9))
+        graph.add_edge(graph.vertex(9), graph.vertex(10))
+        graph.add_edge(graph.vertex(10), graph.vertex(11))
+        graph.add_edge(graph.vertex(11), graph.vertex(8))
+        graph.add_edge(graph.vertex(12), graph.vertex(10))
+
+        graph.add_edge(graph.vertex(10), graph.vertex(13))
+        graph.add_edge(graph.vertex(10), graph.vertex(14))
+        graph.add_edge(graph.vertex(10), graph.vertex(15))
+        graph.add_edge(graph.vertex(11), graph.vertex(17))
+        graph.add_edge(graph.vertex(11), graph.vertex(18))
+        graph.add_edge(graph.vertex(11), graph.vertex(14))
+        graph.add_edge(graph.vertex(11), graph.vertex(15))
+        graph.add_edge(graph.vertex(11), graph.vertex(16))
+        graph.add_edge(graph.vertex(12), graph.vertex(18))
+        graph.add_edge(graph.vertex(18), graph.vertex(19))
+
+        
+        self.plot_graph(graph, "20_nodes_gt")
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\t20 Nodes (GT)\t(%.2fs)" %duration)
+
+    def test_bowtie_plot_30_nodes_gt(self):
+        print("Plotting Test Start:\t30 Nodes (GT)")
+        start_time = time.time()
+
+        graph = Graph()
+        vList = graph.add_vertex(30)
+
+        # IN-Layers
+        graph.add_edge(graph.vertex(0), graph.vertex(3))
+        graph.add_edge(graph.vertex(1), graph.vertex(3))
+        graph.add_edge(graph.vertex(2), graph.vertex(4))
+        graph.add_edge(graph.vertex(3), graph.vertex(5))
+        graph.add_edge(graph.vertex(4), graph.vertex(3))
+        graph.add_edge(graph.vertex(4), graph.vertex(6))
+        graph.add_edge(graph.vertex(5), graph.vertex(6))
+        graph.add_edge(graph.vertex(5), graph.vertex(7))
+        graph.add_edge(graph.vertex(6), graph.vertex(7))
+        graph.add_edge(graph.vertex(6), graph.vertex(8))
+
+        # scc
+        # in from scc (8,9,10,11)
+        graph.add_edge(graph.vertex(7), graph.vertex(9))
+        graph.add_edge(graph.vertex(7), graph.vertex(10))
+        graph.add_edge(graph.vertex(7), graph.vertex(11))
+        graph.add_edge(graph.vertex(8), graph.vertex(9))
+        graph.add_edge(graph.vertex(9), graph.vertex(10))
+        graph.add_edge(graph.vertex(9), graph.vertex(11))
+        graph.add_edge(graph.vertex(10), graph.vertex(11)) 
+        graph.add_edge(graph.vertex(10), graph.vertex(14))
+        graph.add_edge(graph.vertex(11), graph.vertex(8))
+        graph.add_edge(graph.vertex(11), graph.vertex(12))
+        graph.add_edge(graph.vertex(12), graph.vertex(13))
+        graph.add_edge(graph.vertex(13), graph.vertex(11))
+        graph.add_edge(graph.vertex(13), graph.vertex(16))
+        graph.add_edge(graph.vertex(14), graph.vertex(9))
+        graph.add_edge(graph.vertex(14), graph.vertex(15))
+        graph.add_edge(graph.vertex(14), graph.vertex(17))
+        graph.add_edge(graph.vertex(15), graph.vertex(18))
+        graph.add_edge(graph.vertex(15), graph.vertex(10))
+        graph.add_edge(graph.vertex(16), graph.vertex(12))
+        graph.add_edge(graph.vertex(16), graph.vertex(17))
+        graph.add_edge(graph.vertex(11), graph.vertex(18))
+
+        # OUT-Layers
+        graph.add_edge(graph.vertex(18), graph.vertex(19))
+        graph.add_edge(graph.vertex(18), graph.vertex(20))
+        graph.add_edge(graph.vertex(18), graph.vertex(21))
+        graph.add_edge(graph.vertex(17), graph.vertex(20))
+        graph.add_edge(graph.vertex(17), graph.vertex(22))
+        graph.add_edge(graph.vertex(17), graph.vertex(23))
+        
+        graph.add_edge(graph.vertex(19), graph.vertex(24))
+        graph.add_edge(graph.vertex(20), graph.vertex(24))
+        graph.add_edge(graph.vertex(20), graph.vertex(25))
+        graph.add_edge(graph.vertex(20), graph.vertex(26))
+        graph.add_edge(graph.vertex(21), graph.vertex(26))
+        graph.add_edge(graph.vertex(22), graph.vertex(26))
+        graph.add_edge(graph.vertex(22), graph.vertex(27))
+        graph.add_edge(graph.vertex(23), graph.vertex(27))
+        graph.add_edge(graph.vertex(24), graph.vertex(28))
+        graph.add_edge(graph.vertex(27), graph.vertex(28))
+        graph.add_edge(graph.vertex(27), graph.vertex(29))
+        graph.add_edge(graph.vertex(28), graph.vertex(23))
+
+        self.plot_graph(graph, "30_nodes_gt")
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\t30 Nodes (GT)\t(%.2fs)" %duration)
+
+    def test_bowtie_plot_40_nodes_gt(self):
+        print("Plotting Test Start:\t40 Nodes (GT)")
+        start_time = time.time()
+
+        graph = Graph()
+        vList = graph.add_vertex(40)
+
+        # 1st and 2nd layer IN
+        graph.add_edge(graph.vertex(0), graph.vertex(6))
+        graph.add_edge(graph.vertex(1), graph.vertex(6))
+        graph.add_edge(graph.vertex(2), graph.vertex(6))
+        graph.add_edge(graph.vertex(3), graph.vertex(6))
+        graph.add_edge(graph.vertex(4), graph.vertex(6))
+
+        # 3rd layer IN
+        graph.add_edge(graph.vertex(6), graph.vertex(7))
+        graph.add_edge(graph.vertex(6), graph.vertex(8))
+        graph.add_edge(graph.vertex(6), graph.vertex(9))
+        graph.add_edge(graph.vertex(6), graph.vertex(10))
+
+        # 4th layer IN
+        graph.add_edge(graph.vertex(7), graph.vertex(11))
+        graph.add_edge(graph.vertex(8), graph.vertex(12))
+        graph.add_edge(graph.vertex(9), graph.vertex(11))
+        graph.add_edge(graph.vertex(10), graph.vertex(12))
+
+        # 5th layer IN (13, 14, 15, 16, 17)
+        graph.add_edge(graph.vertex(11), graph.vertex(13))
+        graph.add_edge(graph.vertex(11), graph.vertex(14))
+        graph.add_edge(graph.vertex(11), graph.vertex(15))
+        graph.add_edge(graph.vertex(12), graph.vertex(16))
+        graph.add_edge(graph.vertex(12), graph.vertex(17))
+        
+        # build SCC
+        # scc nodes from in (18, 19, 20)
+        graph.add_edge(graph.vertex(13), graph.vertex(18))
+        graph.add_edge(graph.vertex(14), graph.vertex(19))
+        graph.add_edge(graph.vertex(15), graph.vertex(18))
+        graph.add_edge(graph.vertex(16), graph.vertex(19))
+        graph.add_edge(graph.vertex(17), graph.vertex(20))
+
+        # scc nodes from in and to out (21, 22, 23, 24)
+        graph.add_edge(graph.vertex(14), graph.vertex(21))
+        graph.add_edge(graph.vertex(15), graph.vertex(22))
+        graph.add_edge(graph.vertex(16), graph.vertex(23))
+        graph.add_edge(graph.vertex(17), graph.vertex(24))
+        graph.add_edge(graph.vertex(21), graph.vertex(31))
+        graph.add_edge(graph.vertex(22), graph.vertex(31))
+        graph.add_edge(graph.vertex(23), graph.vertex(30))
+        graph.add_edge(graph.vertex(24), graph.vertex(29))
+
+        # Internal SCC (25, 26)
+        graph.add_edge(graph.vertex(18), graph.vertex(24))
+        graph.add_edge(graph.vertex(18), graph.vertex(23))
+        graph.add_edge(graph.vertex(19), graph.vertex(23))
+        graph.add_edge(graph.vertex(19), graph.vertex(22))
+        graph.add_edge(graph.vertex(18), graph.vertex(25))
+        graph.add_edge(graph.vertex(20), graph.vertex(26))
+        graph.add_edge(graph.vertex(21), graph.vertex(27))
+        graph.add_edge(graph.vertex(22), graph.vertex(27))
+        graph.add_edge(graph.vertex(24), graph.vertex(28))
+        graph.add_edge(graph.vertex(25), graph.vertex(21))
+        graph.add_edge(graph.vertex(27), graph.vertex(28))
+        graph.add_edge(graph.vertex(28), graph.vertex(20))
+
+        # back links (to ensure scc)
+        graph.add_edge(graph.vertex(25), graph.vertex(19))
+        graph.add_edge(graph.vertex(25), graph.vertex(20))
+        graph.add_edge(graph.vertex(26), graph.vertex(18))
+        graph.add_edge(graph.vertex(21), graph.vertex(22))
+        graph.add_edge(graph.vertex(23), graph.vertex(24))
+
+        # scc nodes to out (27, 28)
+        graph.add_edge(graph.vertex(27), graph.vertex(29))
+        graph.add_edge(graph.vertex(28), graph.vertex(29))
+        graph.add_edge(graph.vertex(28), graph.vertex(30))
+        graph.add_edge(graph.vertex(28), graph.vertex(31))
+
+        # multiple out layers
+        graph.add_edge(graph.vertex(31), graph.vertex(32))
+        graph.add_edge(graph.vertex(32), graph.vertex(33))
+        graph.add_edge(graph.vertex(32), graph.vertex(34))
+        graph.add_edge(graph.vertex(32), graph.vertex(35))
+        graph.add_edge(graph.vertex(34), graph.vertex(36))
+        graph.add_edge(graph.vertex(35), graph.vertex(37))
+        graph.add_edge(graph.vertex(37), graph.vertex(38))
+        graph.add_edge(graph.vertex(37), graph.vertex(39))
+
+        self.plot_graph(graph, "40_nodes_gt")
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\t40 Nodes (GT)\t(%.2fs)" %duration)
+
+    def test_bowtie_plot_big_in_gt(self):
+        print("Plotting Test Start:\tBig In (GT)")
+        start_time = time.time()
+
+        graph = Graph()
+        vList = graph.add_vertex(22)
+
+        # IN-Layers
+        graph.add_edge(graph.vertex(0), graph.vertex(7))
+        graph.add_edge(graph.vertex(1), graph.vertex(8))
+        graph.add_edge(graph.vertex(2), graph.vertex(7))
+        graph.add_edge(graph.vertex(3), graph.vertex(8))
+        graph.add_edge(graph.vertex(4), graph.vertex(7))
+        graph.add_edge(graph.vertex(5), graph.vertex(8))
+        graph.add_edge(graph.vertex(6), graph.vertex(7))
+
+        graph.add_edge(graph.vertex(7), graph.vertex(9))
+        graph.add_edge(graph.vertex(7), graph.vertex(10))
+        graph.add_edge(graph.vertex(7), graph.vertex(11))
+        graph.add_edge(graph.vertex(8), graph.vertex(12))
+        graph.add_edge(graph.vertex(8), graph.vertex(13))
+        graph.add_edge(graph.vertex(8), graph.vertex(14))
+
+        graph.add_edge(graph.vertex(9), graph.vertex(15))
+        graph.add_edge(graph.vertex(10), graph.vertex(15))
+        graph.add_edge(graph.vertex(11), graph.vertex(16))
+        graph.add_edge(graph.vertex(12), graph.vertex(16))
+        graph.add_edge(graph.vertex(13), graph.vertex(17))
+        graph.add_edge(graph.vertex(14), graph.vertex(17))
+
+        graph.add_edge(graph.vertex(15), graph.vertex(18))
+        graph.add_edge(graph.vertex(16), graph.vertex(18))
+        graph.add_edge(graph.vertex(17), graph.vertex(18))
+
+        graph.add_edge(graph.vertex(18), graph.vertex(19))
+        graph.add_edge(graph.vertex(19), graph.vertex(20))
+        graph.add_edge(graph.vertex(20), graph.vertex(21))
+        graph.add_edge(graph.vertex(21), graph.vertex(19))
+
+                
+        self.plot_graph(graph, "big_in_gt")
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\tBig In (GT)\t(%.2fs)" %duration)
+
+    def test_bowtie_plot_big_out_gt(self):
+        print("Plotting Test Start:\tBig Out (GT)")
+        start_time = time.time()
+
+        graph = Graph()
+        vList = graph.add_vertex(22)
+
+        # IN-Layers
+        graph.add_edge(graph.vertex(0), graph.vertex(1))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(0))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+
+        graph.add_edge(graph.vertex(3), graph.vertex(4))
+        graph.add_edge(graph.vertex(3), graph.vertex(5))
+        graph.add_edge(graph.vertex(3), graph.vertex(6))
+
+        graph.add_edge(graph.vertex(4), graph.vertex(7))
+        graph.add_edge(graph.vertex(4), graph.vertex(8))
+        graph.add_edge(graph.vertex(5), graph.vertex(9))
+        graph.add_edge(graph.vertex(5), graph.vertex(10))
+        graph.add_edge(graph.vertex(6), graph.vertex(11))
+        graph.add_edge(graph.vertex(6), graph.vertex(12))
+
+        graph.add_edge(graph.vertex(7), graph.vertex(13))
+        graph.add_edge(graph.vertex(8), graph.vertex(13))
+        graph.add_edge(graph.vertex(9), graph.vertex(13))
+        graph.add_edge(graph.vertex(10), graph.vertex(14))
+        graph.add_edge(graph.vertex(11), graph.vertex(14))
+        graph.add_edge(graph.vertex(12), graph.vertex(14))
+
+        graph.add_edge(graph.vertex(13), graph.vertex(15))
+        graph.add_edge(graph.vertex(14), graph.vertex(16))
+        graph.add_edge(graph.vertex(13), graph.vertex(17))
+        graph.add_edge(graph.vertex(14), graph.vertex(18))
+        graph.add_edge(graph.vertex(13), graph.vertex(19))
+        graph.add_edge(graph.vertex(14), graph.vertex(20))
+        graph.add_edge(graph.vertex(13), graph.vertex(21))
+
+                
+        self.plot_graph(graph, "big_out_gt")
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\tBig Out (GT)\t(%.2fs)" %duration)
 
     def plot_graph(self, graph, testcase):
         """
-        Helper Method: Create the GC, Plotting object and call bowtieplot
+        Helper Method: Create the GC, Plotting object and call plot_bowtie
         Arguments:
         - testcase: the name of the TestCase
         - iteration: the iteration of the TestCase
@@ -473,7 +851,7 @@ class TestPlotting(unittest.TestCase):
             g.compute()
         # create Plotting instance and call the plotting method
         plotting = Plotting(graphs)
-        plotting.bowtieplot(testcase)
+        plotting.plot_bowtie(testcase)
 
 if __name__ == '__main__':
     def test_stats():
@@ -489,7 +867,9 @@ if __name__ == '__main__':
         #p.test_bowtie_plot_generator()
         #p.test_bowtie_plot_tiny()
         #p.test_bowtie_plot_small()
-        p.test_bowtie_plot_medium()
+        
+        #p.test_bowtie_plot_medium()
+        
         #p.test_bowtie_plot_bigIN()
         #p.test_bowtie_plot_bigSCC()
         #p.test_bowtie_plot_growIN()
@@ -498,6 +878,13 @@ if __name__ == '__main__':
         #p.test_bowtie_plot_growAndShrinkComponentsWithObjectCopy()
         #p.test_bowtie_plot_networkx_generators()
 
+        """graph_tool test cases here"""
+        #p.test_bowtie_plot_medium_gt()
+        p.test_bowtie_plot_10_nodes_gt()
+        p.test_bowtie_plot_20_nodes_gt()
+        p.test_bowtie_plot_30_nodes_gt()
+        p.test_bowtie_plot_40_nodes_gt()
+
     # run all stats and plotting test cases
-    test_stats()
+    #test_stats()
     test_plotting()
