@@ -23,7 +23,7 @@ from matplotlib.path import Path
 import graph_tool.all as gt
 
 # settings
-indices = (0, 0) #, 24, 49, 74, 99)
+indices = (0, 24, 49, 74, 99)
 # canvas coordinates: bottom-left = (0,0); top-right = (1,1)
 center_coordinate = 0.5
 
@@ -38,32 +38,25 @@ class Graph(gt.Graph):
         self.lc_asp, self.lc_diam = 0, 0
         self.bow_tie, self.bow_tie_dict, self.bow_tie_changes = 0, 0, []
         self.bow_tie_nodes = 0
-        if graph:
-            self.add_nodes_from(graph)
-            self.add_edges_from(graph.edges())
+        self.GT_PLACEHOLDER = 2147483647  # gt uses '2147483647' for unreachable nodes
 
     def stats(self, prev_bow_tie_dict=None):
         """
         calculate several statistical measures on the graphs
         """
-        # Core, In and Out
-        #cc = nx.strongly_connected_components(self)
-        #print cc
-        largest_component = gt.label_largest_component(self, directed=True)
         # list with nodes from largest_components
+        largest_component = gt.label_largest_component(self, directed=True)
+        # scc, In and Out
         scc = set()
         for vertex in self.vertices():
             if largest_component[vertex]:
                 scc.add(int(vertex))
         scc_node = random.sample(scc, 1)[0]
-
         sp = gt.shortest_distance(self)
-        
         # all nodes that reach the scc
-        # graph_tool uses '2147483647' for unreachable nodes
         inc = set()
         for vertex in self.vertices():
-            if sp[vertex][scc_node] != 2147483647:
+            if sp[vertex][scc_node] != self.GT_PLACEHOLDER:
                 inc.add(int(vertex))
         inc -= scc
         
@@ -71,7 +64,7 @@ class Graph(gt.Graph):
         outc = set()
         for index in scc:
             for i, target_node in enumerate(sp[self.vertex(index)]):
-                if target_node != 2147483647:
+                if target_node != self.GT_PLACEHOLDER:
                     outc.add(i)
         outc -= scc
 
@@ -90,14 +83,14 @@ class Graph(gt.Graph):
         inc_out = set()
         for index in inc:
             for i, target_node in enumerate(sp[self.vertex(index)]):
-                if target_node != 2147483647:
+                if target_node != self.GT_PLACEHOLDER:
                     inc_out.add(i)
         inc_out = inc_out - inc - scc - outc
 
         for n in remainder:
             reachable_from_n = set()
             for i, target_node in enumerate(sp[self.vertex(n)]):
-                if target_node != 2147483647:
+                if target_node != self.GT_PLACEHOLDER:
                     reachable_from_n.add(i)
 
             if n in inc_out:
@@ -116,18 +109,14 @@ class Graph(gt.Graph):
                       'tube', 'other'], range(7))
         c2a = {c: i for c, i in zipped}
         self.bow_tie_dict = {}
-        for i, c in enumerate([inc, scc, outc, in_tendril, out_tendril, tube,
-                               other]):
+        for i, c in enumerate([inc, scc, outc, in_tendril, out_tendril, tube, other]):
             for n in c:
                 self.bow_tie_dict[n] = i
-
-        if prev_bow_tie_dict:
+        # graph size of comparison must be the same (bow tie dics need to be of same size)
+        if prev_bow_tie_dict and len(prev_bow_tie_dict) == len(self.bow_tie_dict):
             self.bow_tie_changes = np.zeros((len(c2a), len(c2a)))
             for n in self:
-                # out of bounds access when nodes are added to the graph
-                # enable global indices again when working on it
-                self.bow_tie_changes[prev_bow_tie_dict[n],
-                                     self.bow_tie_dict[n]] += 1
+                self.bow_tie_changes[prev_bow_tie_dict[n], self.bow_tie_dict[n]] += 1
             self.bow_tie_changes /= len(self)
 
 class GraphCollection(list):
@@ -155,21 +144,24 @@ Argument:
 - object: A list of GraphCollections, stored in self.graphs
 """
 class Plotting(object):
-
-
     def __init__(self, graphs):
         self.graphs = graphs
         self.styles = ['solid', 'dashed']
         #self.colors = ppl.colors.set2
-        self.bounds = {}
+        self.trapeze_upper_corners = {}
+        self.scc_circle_radius = 0
         self.component_settings = {}
+        # key_nodes:
+        #   in_nodes_to_scc
+        #   scc_nodes_from_in
+        #   scc_nodes_to_out
+        #   scc_nodes_to_both
+        #   out_nodes_from_scc
+        self.key_nodes = {}
         self.sectionLines = []
 
         # matplotlib uses inches, graph_tool uses pixels (100dpi)
         self.screen_inches = 16.00
-
-        #self.stackplot()
-        #self.alluvial()
 
     def plot_bowtie(self, name):
         """
@@ -191,43 +183,37 @@ class Plotting(object):
                         vprop_relevantNodes[vertex]=bool(True)
                     else:
                         vprop_relevantNodes[vertex]=bool(False)
-                
                 graph.set_vertex_filter(vprop_relevantNodes)
+                
                 # Set up Axis and Figure
                 fig, ax = self.clear_figure(plt)
                 # calculate key nodes of graph
-                keyNodes = self.find_key_nodes(graph)
+                self.find_key_nodes(graph)
 
                 # Add in- and out-trapeze (patch) and scc circle (patch) to axis
-                ax, patches = self.draw_scc_in_out(graph, ax, keyNodes)
+                ax, patches = self.draw_scc_in_out(graph, ax)
                 self.show_component_node_legend(graph, plt)
                 self.show_component_percent_legend()
 
                 # we need to know which nodes are in which section/level of the component
-                [in_levels, out_levels] = self.in_out_levels_holding_nodes(graph, graph.bow_tie_nodes, keyNodes)
-                scc_levels = self.scc_levels_holding_nodes(graph, graph.bow_tie_nodes, keyNodes)
+                in_levels, out_levels = self.in_out_levels_holding_nodes(graph, graph.bow_tie_nodes)
+                scc_levels = self.scc_levels_holding_nodes(graph, graph.bow_tie_nodes)
                 # node positions within the component backgrounds
-                positions = {}
-                inNodePositions = self.in_out_node_positions(graph, in_levels, 'in')
-                outNodePositions = self.in_out_node_positions(graph, out_levels, 'out')
-                sccNodePositions = self.scc_node_positions(graph, scc_levels)
-                positions.update(sccNodePositions)
-                positions.update(inNodePositions)
-                positions.update(outNodePositions)
+                
+                # calculate positions for nodes
+                vprop_positions = graph.new_vertex_property("vector<float>")
+                #graph.vertex_properties[str("positions")] = graph.new_vertex_property("vector<float>")
+                self.in_out_node_positions(graph, in_levels, 'in', vprop_positions)
+                self.in_out_node_positions(graph, out_levels, 'out', vprop_positions)
+                self.scc_node_positions(graph, scc_levels, vprop_positions)
                 
                 self.drawSectionLines()
 
-                # port positions to graph_tool graph # todo: move this into pos calc methods
-                vprop_positions = graph.new_vertex_property("vector<float>")
-                for pos in positions:
-                    x_coord = positions[pos][0]
-                    # need to swap the y, graph tool has the origin in the top left corner
-                    y_coord = 1-positions[pos][1]
-                    vprop_positions[graph.vertex(pos)] = (x_coord, y_coord)
-
+                # create Tube # todo only show if tube component exists
                 tubePatch = self.draw_tube(graph)
                 ax.add_patch(tubePatch)
 
+                # create Tendril(s)
                 tendrilPatch1 = self.draw_tendril(graph, diameter=0.03, left_x=0.1)
                 tendrilPatch2 = self.draw_tendril(graph, diameter=0.04, left_x=0.2)
                 ax.add_patch(tendrilPatch1)
@@ -241,7 +227,7 @@ class Plotting(object):
                 plt.savefig(background_filename, frameon=True, pad_inches=0)
                 fig, ax = self.clear_figure(plt)
                 # figure needs to be empty since zorder of gt-graph cant be changed
-                gt.graph_draw(graph, pos=vprop_positions,
+                gt.graph_draw(graph, pos=vprop_positions, \
                                                     vprops={"size": 32, "text": graph.vertex_index, "font_size": 18}, \
                                                     eprops={"marker_size":12}, \
                                                     output_size=(int(self.screen_inches*100), int(self.screen_inches*100)), \
@@ -256,14 +242,11 @@ class Plotting(object):
 
                 # reset stuff for next graph in collection
                 plt.clf()
+                self.trapeze_upper_corners = {}
+                self.scc_circle_radius = 0
                 self.sectionLines = []
-                self.bounds = {}
                 graphcounter += 1
-                """
-                labels = ['inc: ', 'scc: ', 'outc: ', 'in_tendril: ', 'out_tendril: ', 'tube: ', 'other: ']
-                for label, component in zip(labels, graph.bow_tie_nodes):
-                    print label + ", ".join(str(node) for node in component)
-                """
+
     def clear_figure(self, plt):
         plt.clf()
         fig = plt.gcf()
@@ -287,13 +270,11 @@ class Plotting(object):
         #ax.set_position(paddingBBox)
         return fig, ax
 
-    def scc_levels_holding_nodes(self, g, bow_tie_nodes, keyNodes):
-        # [in_nodes_to_scc, scc_nodes_from_in, scc_nodes_to_out, scc_nodes_to_both, out_nodes_from_scc]
-        circle_radius = self.bounds.get('scc_circle_radius')
-        scc_nodes_from_in = keyNodes[1]
-        scc_nodes_to_out = keyNodes[2]
-        scc_nodes_to_both = keyNodes[3]
-        scc_nodes_from_in = scc_nodes_from_in.difference(scc_nodes_to_both)
+    def scc_levels_holding_nodes(self, g, bow_tie_nodes):
+        scc_nodes_from_in = self.key_nodes.get("scc_nodes_from_in")
+        scc_nodes_to_out = self.key_nodes.get("scc_nodes_to_out")
+        scc_nodes_to_both = self.key_nodes.get("scc_nodes_to_both")
+        scc_nodes_from_in = scc_nodes_from_in.difference(scc_nodes_to_both) # todo: do this in find_keynodes
         scc_nodes_to_out = scc_nodes_to_out.difference(scc_nodes_to_both)
 
         # get number of sections
@@ -311,78 +292,88 @@ class Plotting(object):
 
         # one section line needed
         if number_of_levels == 2:
-            self.sectionLines.append([center_coordinate, center_coordinate-circle_radius])
+            self.sectionLines.append([center_coordinate, center_coordinate - self.scc_circle_radius])
 
         if number_of_levels == 3:
             # divide circle into 3 sections of equal x-length
-            center_offset = circle_radius/3
+            center_offset = self.scc_circle_radius/3
             x_coord = center_coordinate - center_offset
             # find y coordinate on circumference for given x
-            y = center_coordinate + np.sqrt((circle_radius * circle_radius) - np.power((x_coord - center_coordinate), 2))
+            y = center_coordinate + np.sqrt((self.scc_circle_radius * self.scc_circle_radius) - np.power((x_coord - center_coordinate), 2))
             self.sectionLines.append([center_coordinate - center_offset, y])
             self.sectionLines.append([center_coordinate + center_offset, y])
         return scc_levels
 
-    def scc_node_positions(self, graph, levels):
-        circle_radius = self.bounds.get('scc_circle_radius')
-        positions = {}
+    def scc_node_positions(self, graph, levels, vprop_positions):
         # calculate node positions
         if len(levels) == 1:
-            positions = self.randomNodePositionInCircle(graph)
+            self.scc_node_positions_random(graph, vprop_positions)
         elif len(levels) == 2:
             # align nodes vertically
-            left_x = center_coordinate - (circle_radius / 2)
-            right_x = center_coordinate + (circle_radius / 2)
-            max_y_coord = center_coordinate + np.sqrt((circle_radius * circle_radius) - np.power((left_x - center_coordinate), 2))
+            left_x = center_coordinate - (self.scc_circle_radius / 2)
+            right_x = center_coordinate + (self.scc_circle_radius / 2)
+            max_y_coord = center_coordinate + np.sqrt((self.scc_circle_radius * self.scc_circle_radius) - np.power((left_x - center_coordinate), 2))
             y_start = 1 - max_y_coord
             y_range = max_y_coord - y_start
             
             y_range_section = y_range / (len(levels[0])+1)
             for index, node in enumerate(levels[0]):
                 y_coord = y_start + (index+1) * y_range_section
-                positions[node] = np.array([left_x, y_coord])
+                vprop_positions[graph.vertex(node)] = np.array([left_x, y_coord])
 
             y_range_section = y_range / (len(levels[1])+1)
             for index, node in enumerate(levels[1]):
                 y_coord = y_start + (index+1) * y_range_section
-                positions[node] = np.array([right_x, y_coord])
+                vprop_positions[graph.vertex(node)] = np.array([right_x, y_coord])
         elif len(levels) == 3:
-            x_offset = 2/3 * circle_radius
+            x_offset = 2/3 * self.scc_circle_radius
             left_x = center_coordinate - x_offset
             middle_x = center_coordinate
             right_x = center_coordinate + x_offset
 
-            middle_y_max = center_coordinate + circle_radius
-            middle_y_start = center_coordinate - circle_radius
-            y_range = 2 * circle_radius
+            middle_y_max = center_coordinate + self.scc_circle_radius
+            middle_y_start = center_coordinate - self.scc_circle_radius
+            y_range = 2 * self.scc_circle_radius
 
             y_range_section = y_range / (len(levels[1])+1)
             for index, node in enumerate(levels[1]):
                 y_coord = middle_y_start + (index+1) * y_range_section
-                positions[node] = np.array([middle_x, y_coord])
+                vprop_positions[graph.vertex(node)] = np.array([middle_x, y_coord])
 
-            left_right_y_max = center_coordinate + np.sqrt((circle_radius * circle_radius) - np.power((left_x - center_coordinate), 2))
+            left_right_y_max = center_coordinate + np.sqrt((self.scc_circle_radius * self.scc_circle_radius) - np.power((left_x - center_coordinate), 2))
             y_start = 1 - left_right_y_max
             y_range = left_right_y_max - y_start
 
             y_range_section = y_range / (len(levels[0])+1)
             for index, node in enumerate(levels[0]):
                 y_coord = y_start + (index+1) * y_range_section
-                positions[node] = np.array([left_x, y_coord])
+                vprop_positions[graph.vertex(node)] = np.array([left_x, y_coord])
 
             y_range_section = y_range / (len(levels[2])+1)
             for index, node in enumerate(levels[2]):
                 y_coord = y_start + (index+1) * y_range_section
-                positions[node] = np.array([right_x, y_coord])
+                vprop_positions[graph.vertex(node)] = np.array([right_x, y_coord])
+        return vprop_positions
 
-        return positions
-
-    def in_out_levels_holding_nodes(self, g, bow_tie_nodes, keyNodes):
+    def scc_node_positions_random(self, graph, vprop_positions):
+        # SCC Nodes
+        nodes = graph.bow_tie_nodes[1]
+        # put nodes evenly distributed into circle
+        for node in nodes:
+            a = 2 * np.pi * random.random()
+            r = np.sqrt(random.random())
+            x_coord = (self.scc_circle_radius * r) * np.cos(a) + center_coordinate #circle center position
+            y_coord = (self.scc_circle_radius * r) * np.sin(a) + center_coordinate #circle center position
+            vprop_positions[graph.vertex(node)] = np.array([x_coord, y_coord])
+        return
+    
+    def in_out_levels_holding_nodes(self, g, bow_tie_nodes):
         # todo: remove duplicated code --> no time improvement but readability (... maybe?!) ?
         in_nodes = bow_tie_nodes[0]
         out_nodes = bow_tie_nodes[2]
-        scc_nodes_from_in = keyNodes[1]
-        scc_nodes_to_out = keyNodes[2]
+        
+        scc_nodes_from_in = self.key_nodes.get("scc_nodes_from_in")
+        scc_nodes_to_out = self.key_nodes.get("scc_nodes_to_out")
 
         # create property map for shortest path to ssc storage
         vprop_sp_in = g.new_vertex_property("int")
@@ -430,37 +421,26 @@ class Plotting(object):
         for out_node in out_nodes:
             current_level = vprop_sp_out[g.vertex(out_node)]-1
             out_levels[current_level].append(out_node)
+        return in_levels, out_levels
 
-        """
-        print "=============="
-        print "In Node: " + str(in_node) + " to scc node: " + str(scc_node)
-        print ([str(v) for v in vlist])
-        print ([str(e) for e in elist])
-        """
-        # [in_nodes_to_scc, scc_nodes_from_in, scc_nodes_to_out, scc_nodes_to_both, out_nodes_from_scc]
-        return [in_levels, out_levels]
-
-    def in_out_node_positions(self, g, levels, component):
-        positions = {}
+    def in_out_node_positions(self, graph, levels, component, vprop_positions):
         if len(levels) == 0:
-            return positions
-        circle_radius = self.bounds.get('scc_circle_radius')
+            return
         if component == 'in':
             # trapeze corners
-            left_x = self.bounds.get("in_left_x")
-            left_y = self.bounds.get("in_left_y")
-            right_x = self.bounds.get("in_right_x")
-            right_y = self.bounds.get("in_right_y")
-            
+            left_x = self.trapeze_upper_corners.get("in_left_x")
+            left_y = self.trapeze_upper_corners.get("in_left_y")
+            right_x = self.trapeze_upper_corners.get("in_right_x")
+            right_y = self.trapeze_upper_corners.get("in_right_y")
         elif  component == 'out':
-            left_x = self.bounds.get("out_left_x")
-            left_y = self.bounds.get("out_left_y")
-            right_x = self.bounds.get("out_right_x")
-            right_y = self.bounds.get("out_right_y")
+            left_x = self.trapeze_upper_corners.get("out_left_x")
+            left_y = self.trapeze_upper_corners.get("out_left_y")
+            right_x = self.trapeze_upper_corners.get("out_right_x")
+            right_y = self.trapeze_upper_corners.get("out_right_y")
             # reverse the order, lowest level must be on top
             levels.reverse()
         else:
-            return positions
+            return
         # sections for trapeze
         sections = len(levels)
         # get slope of the top leg of the trapeze
@@ -468,12 +448,12 @@ class Plotting(object):
         
         if component == 'in':
             # use trapeze only until overlap with circle
-            right_x = center_coordinate - circle_radius
+            right_x = center_coordinate - self.scc_circle_radius
             # need to recalculate right_y
             right_y = slope_m * (right_x - left_x) + left_y
         elif component == 'out':
             # check if "left_y = ..."" works
-            left_x_new = center_coordinate + circle_radius
+            left_x_new = center_coordinate + self.scc_circle_radius
             left_y_new = slope_m * (left_x_new - left_x) + left_y
             left_x = left_x_new
             left_y = left_y_new
@@ -487,20 +467,17 @@ class Plotting(object):
             # sections distributed evenly
             right_x = left_x + (x_length / sections)
             right_y = slope_m * (right_x - left_x) + left_y
-            if sections > 1 and right_x != self.bounds.get("out_right_x"):
+            if sections > 1 and right_x != self.trapeze_upper_corners.get("out_right_x"):
                 self.sectionLines.append([right_x, 1-right_y])
             # calculate positions in each section alone
-            positions.update(self.in_out_nodes_in_section_positions(levelNodes, left_x, right_x, left_y, right_y))
+            self.in_out_nodes_in_section_positions(graph, levelNodes, left_x, right_x, left_y, right_y, vprop_positions)
             left_x = right_x
             left_y = right_y
-        return positions
+        return
 
-    def in_out_nodes_in_section_positions(self, nodes, left_x, right_x, left_y, right_y):
-        circle_radius = self.bounds.get("scc_circle_radius")
+    def in_out_nodes_in_section_positions(self, graph, nodes, left_x, right_x, left_y, right_y, vprop_positions):
         if len(nodes) is 0:
             return {}
-        
-        positions = {}
         # the 'height' of the Trapeze (the trapezes are lying on the side)
         x_range = right_x - left_x
 
@@ -511,7 +488,7 @@ class Plotting(object):
         for index, node in enumerate(nodes):
             # x is in center of the sections
             x_coord = left_x + x_range/2
-            # calculate the y bounds for given x in trapeze
+            # calculate the y trapeze_upper_corners for given x in trapeze
             # they vary for every x
             max_y_coord = slope_m * (x_coord - left_x) + left_y
             y_start = 1 - max_y_coord
@@ -521,8 +498,8 @@ class Plotting(object):
             y_range_section = y_range / (len(nodes)+1)
             y_coord = y_start + (index+1) * y_range_section
             # add position
-            positions[node] = np.array([x_coord, y_coord])
-        return positions
+            vprop_positions[graph.vertex(node)] = np.array([x_coord, y_coord])
+        return
 
     def find_key_nodes(self, graph):
         in_nodes = graph.bow_tie_nodes[0]
@@ -542,7 +519,6 @@ class Plotting(object):
             for edge in (graph.edges()):
                 # edge starts in node? edge ends in scc?
                 if graph.vertex(node) == edge.source() and int(edge.target()) in scc_nodes:
-                    # todo: count how many edges lead into scc
                     in_nodes_to_scc.add(node)
                     scc_nodes_from_in.add(int(edge.target()))
         
@@ -551,7 +527,6 @@ class Plotting(object):
             for edge in (graph.edges()):
                 # edge starts in scc? edge ends in out?
                 if graph.vertex(node) == edge.source() and int(edge.target()) in out_nodes:
-                    # todo: count how many edges lead into out
                     scc_nodes_to_out.add(node)
                     out_nodes_from_scc.add(int(edge.target()))
         
@@ -561,20 +536,14 @@ class Plotting(object):
         # or are only connected to other nodes in scc
         scc_nodes_to_both = scc_nodes_to_both.union(scc_nodes - scc_nodes_from_in - scc_nodes_to_out)
         
-        """
-        print "------------------------------------------------------"
-        print 'scc from in: ' + str(scc_nodes_from_in)
-        print 'scc to out: ' + str(scc_nodes_to_out)
-        print 'scc both: ' + str(scc_nodes_to_both)
-        print 'in to scc: ' + str(in_nodes_to_scc)
-        print 'out from scc ' + str(out_nodes_from_scc)
-        print "------------------------------------------------------"
-        """
-        # return array of arrays holding the key nodes of each component
-        return [in_nodes_to_scc, scc_nodes_from_in, scc_nodes_to_out, scc_nodes_to_both, out_nodes_from_scc]
+        # store in class dictionary
+        self.key_nodes["in_nodes_to_scc"] = in_nodes_to_scc
+        self.key_nodes["scc_nodes_from_in"] = scc_nodes_from_in
+        self.key_nodes["scc_nodes_to_out"] = scc_nodes_to_out
+        self.key_nodes["scc_nodes_to_both"] = scc_nodes_to_both
+        self.key_nodes["out_nodes_from_scc"] = out_nodes_from_scc
 
-    def draw_scc_in_out(self, graph, ax, keyNodes):
-
+    def draw_scc_in_out(self, graph, ax):
         # component sizes in percent
         in_c = graph.bow_tie[0]
         scc_c = graph.bow_tie[1]
@@ -589,18 +558,17 @@ class Plotting(object):
         out_c = out_c / main_components
 
         # SCC-Circle: radius varies with size
-        circle_radius = 0.05 + (scc_c / 3.5)
+        scc_circle_radius = 0.05 + (scc_c / 3.5)
     
         # color varies with size, starting with light red increases intensity
         scaled_color_value = (250 - (250 * scc_c)) / 255 
         scc_face_color = 1, scaled_color_value, scaled_color_value
         scc_circle = patches.Circle((center_coordinate, center_coordinate),
-                                     circle_radius,
-                                     facecolor=scc_face_color,
-                                     edgecolor='#70707D',
-                                     linewidth=1.5,
-                                     zorder=0.5) # higher zorder gets drawn later
-
+                                                     scc_circle_radius,
+                                                     facecolor=scc_face_color,
+                                                     edgecolor='#70707D',
+                                                     linewidth=1.5,
+                                                     zorder=0.5) # higher zorder gets drawn later
         # IN-Trapeze coordinates
         # x starts at y axis (x = 0), y varies with size
         in_bottom_left_x  = 0
@@ -611,15 +579,15 @@ class Plotting(object):
         in_top_left_y = 1 - in_bottom_left_y
     
         # The bigger the SCC is, the smaller the overlap
-        scc_overlap = circle_radius / 2  - (circle_radius / 2 * scc_c)
+        scc_overlap = scc_circle_radius / 2  - (scc_circle_radius / 2 * scc_c)
         
         # the right x-es
-        in_bottom_right_x = center_coordinate - circle_radius + scc_overlap
+        in_bottom_right_x = center_coordinate - scc_circle_radius + scc_overlap
         in_top_right_x = in_bottom_right_x
 
         # calculate intersection of trapeze and circle for the right x-es
         # using the Pythagorean theorem
-        in_top_right_y = center_coordinate + np.sqrt(np.square(circle_radius) \
+        in_top_right_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) \
                          - np.square(in_bottom_right_x - center_coordinate))
         in_bottom_right_y = 1 - in_top_right_y
 
@@ -630,10 +598,10 @@ class Plotting(object):
         out_top_right_x = out_bottom_right_x
         out_top_right_y = 1 - out_bottom_right_y
 
-        out_bottom_left_x = center_coordinate + circle_radius - scc_overlap
+        out_bottom_left_x = center_coordinate + scc_circle_radius - scc_overlap
         out_top_left_x = out_bottom_left_x
 
-        out_top_left_y = center_coordinate + np.sqrt(np.square(circle_radius) - \
+        out_top_left_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) - \
                          np.square(out_bottom_left_x - center_coordinate))
         out_bottom_left_y = 1 - out_top_left_y
 
@@ -648,73 +616,56 @@ class Plotting(object):
                                         [out_top_right_x, out_top_right_y],
                                         [out_top_left_x, out_top_left_y]])
         
-        
         scaled_color_value = (250 - (250 * scc_c)) / 255 
         in_face_color = scaled_color_value, 1, scaled_color_value
         in_trapeze = patches.Polygon(in_trapeze_coordinates,
-                                     closed=True,
-                                     facecolor=in_face_color,
-                                     edgecolor='#70707D',
-                                     linewidth=1.5,
-                                     zorder=0)
-
+                                                         closed=True,
+                                                         facecolor=in_face_color,
+                                                         edgecolor='#70707D',
+                                                         linewidth=1.5,
+                                                         zorder=0)
         scaled_color_value = (250 - (250 * scc_c)) / 255 
         out_face_color = scaled_color_value, scaled_color_value, 1
         out_trapeze = patches.Polygon(out_trapeze_coordinates,
-                                      closed=True,
-                                      facecolor=out_face_color,
-                                      edgecolor='#70707D',
-                                      linewidth=1.5,    
-                                      zorder=0)
-
+                                                          closed=True,
+                                                          facecolor=out_face_color,
+                                                          edgecolor='#70707D',
+                                                          linewidth=1.5,    
+                                                          zorder=0)
         # store component defining points in dictionary (for later node calculations)
-        bound_positions = {}
-        bound_positions["scc_circle_radius"] = circle_radius
-        bound_positions["in_left_x"] = in_top_left_x
-        bound_positions["in_left_y"] = in_top_left_y
-        bound_positions["in_right_x"] = in_top_right_x
-        bound_positions["in_right_y"] = in_top_right_y
-        bound_positions["out_left_x"] = out_top_left_x
-        bound_positions["out_left_y"] = out_top_left_y
-        bound_positions["out_right_x"] = out_top_right_x
-        bound_positions["out_right_y"] = out_top_right_y
+        self.scc_circle_radius = scc_circle_radius
+        self.trapeze_upper_corners["in_left_x"] = in_top_left_x
+        self.trapeze_upper_corners["in_left_y"] = in_top_left_y
+        self.trapeze_upper_corners["in_right_x"] = in_top_right_x
+        self.trapeze_upper_corners["in_right_y"] = in_top_right_y
+        self.trapeze_upper_corners["out_left_x"] = out_top_left_x
+        self.trapeze_upper_corners["out_left_y"] = out_top_left_y
+        self.trapeze_upper_corners["out_right_x"] = out_top_right_x
+        self.trapeze_upper_corners["out_right_y"] = out_top_right_y
 
-        component_settings = {}
-        component_settings["scc_percentage"] = scc_c
-        component_settings["in_percentage"] = in_c
-        component_settings["out_percentage"] = out_c
-        component_settings["scc_color"] = scc_face_color
-        component_settings["in_color"] =  in_face_color
-        component_settings["out_color"] =  out_face_color
-        self.component_settings.update(component_settings)
-
-        # add values to class variable
-        self.bounds.update(bound_positions)
+        self.component_settings["scc_percentage"] = scc_c
+        self.component_settings["in_percentage"] = in_c
+        self.component_settings["out_percentage"] = out_c
+        self.component_settings["scc_color"] = scc_face_color
+        self.component_settings["in_color"] =  in_face_color
+        self.component_settings["out_color"] =  out_face_color
         
         in_patch = ax.add_patch(in_trapeze)
         out_patch = ax.add_patch(out_trapeze)
         scc_patch = ax.add_patch(scc_circle)
         return ax, [in_patch, out_patch, scc_patch]
 
-    def draw_orientation_lines(self):
-        self.draw_vertical_line(0.5)
-        self.draw_horizontal_line(0.25)
-        self.draw_horizontal_line(0.5)
-        self.draw_horizontal_line(0.75)
-
     def draw_tendril(self, graph, diameter=0.03, left_x=0.1):
-        circle_radius = self.bounds.get('scc_circle_radius')
-
         # get trapeze coordinates
-        in_left_x = self.bounds.get("in_left_x")
-        in_left_y = self.bounds.get("in_left_y")
-        in_right_x = self.bounds.get("in_right_x")
-        in_right_y = self.bounds.get("in_right_y")
+        in_left_x = self.trapeze_upper_corners.get("in_left_x")
+        in_left_y = self.trapeze_upper_corners.get("in_left_y")
+        in_right_x = self.trapeze_upper_corners.get("in_right_x")
+        in_right_y = self.trapeze_upper_corners.get("in_right_y")
         
-        out_left_x = self.bounds.get("out_left_x")
-        out_left_y = self.bounds.get("out_left_y")
-        out_right_x = self.bounds.get("out_right_x")
-        out_right_y = self.bounds.get("out_right_y")
+        out_left_x = self.trapeze_upper_corners.get("out_left_x")
+        out_left_y = self.trapeze_upper_corners.get("out_left_y")
+        out_right_x = self.trapeze_upper_corners.get("out_right_x")
+        out_right_y = self.trapeze_upper_corners.get("out_right_y")
         
         # trapeze top leg slopes
         slope_in = ((in_left_y - in_right_y) / (in_left_x - in_right_x))
@@ -727,7 +678,7 @@ class Plotting(object):
         tendril_connect_right_y = in_left_y + slope_in * (tendril_right_x - in_left_x)
 
         # we don't want to go over the border (1.0) and we still need to close the tendril
-        tendril_max_length = 0.9 - tendril_connect_left_y
+        tendril_max_length = 0.9 - tendril_connect_left_y # todo: make 0.9 dynamic (= tendril length)
 
         tendril_mid_y = tendril_connect_left_y + tendril_max_length/2
         tendril_top_left_y = tendril_connect_left_y + tendril_max_length
@@ -752,18 +703,15 @@ class Plotting(object):
             (tendril_left_x, tendril_mid_y),                                    # middle of tendril
             (control_point_high_left_x, control_point_high_y),     #curve into other direction
             (tendril_left_x, tendril_top_left_y),                              # reached top
-            
             # build round top: todo: beautify
             (control_point_top_left_x, control_point_top_y),
             (control_point_top_right_x, control_point_top_y),
             (tendril_right_x, tendril_top_right_y), 
-            
             # right line tendril going down
             (control_point_high_right_x, control_point_high_y),
             (tendril_right_x, tendril_mid_y),
             (control_point_low_right_x, control_point_low_y),
             (tendril_right_x, tendril_connect_right_y),
-            
             # close poly
             (tendril_left_x, tendril_connect_left_y)
             ]
@@ -775,18 +723,16 @@ class Plotting(object):
             Path.CURVE3,
             Path.CURVE3,
             Path.CURVE3,
-
             # round top
             Path.CURVE4,
             Path.CURVE4,
             Path.CURVE4,
-
             # right line tendril going down
             Path.CURVE3,
             Path.CURVE3,
             Path.CURVE3,
             Path.CURVE3,
-
+            # close poly
             Path.CLOSEPOLY
             ]
     
@@ -795,18 +741,16 @@ class Plotting(object):
         return patch
 
     def draw_tube(self, graph):
-        circle_radius = self.bounds.get('scc_circle_radius')
-
         # get trapeze coordinates (but use the bottom side of trapeze -> '1-')
-        in_left_x = self.bounds.get("in_left_x")
-        in_left_y = 1-self.bounds.get("in_left_y")
-        in_right_x = self.bounds.get("in_right_x")
-        in_right_y = 1-self.bounds.get("in_right_y")
+        in_left_x = self.trapeze_upper_corners.get("in_left_x")
+        in_left_y = 1-self.trapeze_upper_corners.get("in_left_y")
+        in_right_x = self.trapeze_upper_corners.get("in_right_x")
+        in_right_y = 1-self.trapeze_upper_corners.get("in_right_y")
         
-        out_left_x = self.bounds.get("out_left_x")
-        out_left_y = 1-self.bounds.get("out_left_y")
-        out_right_x = self.bounds.get("out_right_x")
-        out_right_y = 1-self.bounds.get("out_right_y")
+        out_left_x = self.trapeze_upper_corners.get("out_left_x")
+        out_left_y = 1-self.trapeze_upper_corners.get("out_left_y")
+        out_right_x = self.trapeze_upper_corners.get("out_right_x")
+        out_right_y = 1-self.trapeze_upper_corners.get("out_right_y")
         
         slope_in = ((in_left_y - in_right_y) / (in_left_x - in_right_x))
         slope_out = ((out_left_y - out_right_y) / (out_left_x - out_right_x))
@@ -820,7 +764,7 @@ class Plotting(object):
 
         # calculate bézier control point
         y_diff = max((in_right_y - line1_start_y), (out_left_y - line1_end_y))
-        control_point_one = (center_coordinate, (center_coordinate-circle_radius-y_diff))
+        control_point_one = (center_coordinate, (center_coordinate - self.scc_circle_radius - y_diff))
 
         tube_diameter = 0.025 # make this dependent of size of tube component
         control_point_two = (center_coordinate, control_point_one[1]-tube_diameter)
@@ -857,6 +801,12 @@ class Plotting(object):
         patch = patches.PathPatch(path, facecolor='#B2B2CC', edgecolor='#70707D', lw=1.5, zorder=0.4)
         return patch
 
+    def draw_orientation_lines(self):
+        self.draw_vertical_line(0.5)
+        self.draw_horizontal_line(0.25)
+        self.draw_horizontal_line(0.5)
+        self.draw_horizontal_line(0.75)
+
     def draw_vertical_line(self, x, y_padding=0):
         plt.plot((x, x), (y_padding, 1-y_padding), 'k--')
 
@@ -883,10 +833,10 @@ class Plotting(object):
         plt.legend(loc=2, frameon=False, borderpad=0, borderaxespad=0, handles=[inc_patch, scc_patch, out_patch])
 
     def show_component_percent_legend(self):
-        in_left_x = self.bounds.get("in_left_x")
-        in_right_x = self.bounds.get("in_right_x")
-        out_left_x = self.bounds.get("out_left_x")
-        out_right_x = self.bounds.get("out_right_x")
+        in_left_x = self.trapeze_upper_corners.get("in_left_x")
+        in_right_x = self.trapeze_upper_corners.get("in_right_x")
+        out_left_x = self.trapeze_upper_corners.get("out_left_x")
+        out_right_x = self.trapeze_upper_corners.get("out_right_x")
 
         in_color = self.component_settings.get("in_color")
         scc_color = self.component_settings.get("scc_color")
@@ -924,6 +874,17 @@ class Plotting(object):
             out_fontsize = min_label_font_size + (font_size_range * out_c)
             plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%",
                      fontsize=out_fontsize, color=out_color)
+    def print_key_nodes_console(self):
+        print 'in to scc: \t' + ", ".join(str(node) for node in self.key_nodes.get("in_nodes_to_scc"))
+        print 'scc from in: \t' + ", ".join(str(node) for node in self.key_nodes.get("scc_nodes_from_in"))
+        print 'scc to out: \t' + ", ".join(str(node) for node in self.key_nodes.get("scc_nodes_to_out"))
+        print 'scc to both: \t' + ", ".join(str(node) for node in self.key_nodes.get("scc_nodes_to_both"))
+        print 'out from scc \t' + ", ".join(str(node) for node in self.key_nodes.get("out_nodes_from_scc"))
+
+    def print_component_nodes_console(self, graph):
+        labels = ['inc: \t\t', 'scc: \t\t', 'outc: \t\t', 'in_tendril: \t', 'out_tendril: \t', 'tube: \t\t', 'other: \t\t']
+        for label, component in zip(labels, graph.bow_tie_nodes):
+            print label + ", ".join(str(node) for node in component)
 
     def group_numbers(self, sorted_list):
         """
