@@ -112,7 +112,7 @@ class Graph(gt.Graph):
         for i, c in enumerate([inc, scc, outc, in_tendril, out_tendril, tube, other]):
             for n in c:
                 self.bow_tie_dict[n] = i
-        # graph size of comparison must be the same (bow tie dics need to be of same size)
+        # graph size must be the same for comparison (bowtie dics need to be of same size)
         if prev_bow_tie_dict and len(prev_bow_tie_dict) == len(self.bow_tie_dict):
             self.bow_tie_changes = np.zeros((len(c2a), len(c2a)))
             for n in self:
@@ -131,12 +131,12 @@ class GraphCollection(list):
         as indicated by the global variable indices
         """
         bow_tie_dict = None
-        for i, g in enumerate(self):
+        for i, graph in enumerate(self):
             if i in indices:
-                g.stats(bow_tie_dict)
-                bow_tie_dict = g.bow_tie_dict
+                graph.stats(bow_tie_dict)
+                bow_tie_dict = graph.bow_tie_dict
             else:
-                g.stats()
+                graph.stats()
 
 """
 Class for Plotting: plot_bowtie, stackplot, alluvial
@@ -148,22 +148,16 @@ class Plotting(object):
         self.graphs = graphs
         self.styles = ['solid', 'dashed']
         #self.colors = ppl.colors.set2
-        self.trapeze_upper_corners = {}
-        self.scc_circle_radius = 0
         self.component_settings = {}
-        # key_nodes:
-        #   in_nodes_to_scc
-        #   scc_nodes_from_in
-        #   scc_nodes_to_out
-        #   scc_nodes_to_both
-        #   out_nodes_from_scc
         self.key_nodes = {}
+        self.scc_circle_radius = 0
         self.sectionLines = []
+        self.trapeze_upper_corners = {}
 
         # matplotlib uses inches, graph_tool uses pixels (100dpi)
         self.screen_inches = 16.00
 
-    def plot_bowtie(self, name):
+    def plot_bowtie(self, name, showLegends=True, showSections=True):
         """
         Plots graphs as a bowtie
         Arguments:
@@ -174,17 +168,6 @@ class Plotting(object):
         for i, gc in enumerate(self.graphs):
             # get the graphs out of the graph collection: usually just one graph
             for graph in gc:
-                # only plot the in, scc, and out nodes -> combine the sets
-                relevantNodes = graph.bow_tie_nodes[0].union(graph.bow_tie_nodes[1].union(graph.bow_tie_nodes[2]))
-                # and mask the graph_tool graph
-                vprop_relevantNodes = graph.new_vertex_property('boolean')
-                for vertex in graph.vertices():
-                    if int(vertex) in relevantNodes:
-                        vprop_relevantNodes[vertex]=bool(True)
-                    else:
-                        vprop_relevantNodes[vertex]=bool(False)
-                graph.set_vertex_filter(vprop_relevantNodes)
-                
                 # Set up Axis and Figure
                 fig, ax = self.clear_figure(plt)
                 # calculate key nodes of graph
@@ -192,26 +175,28 @@ class Plotting(object):
 
                 # Add in- and out-trapeze (patch) and scc circle (patch) to axis
                 ax, patches = self.draw_scc_in_out(graph, ax)
-                self.show_component_node_legend(graph, plt)
-                self.show_component_percent_legend()
+                
+                if showLegends:
+                    self.show_component_node_legend(graph, plt)
+                    self.show_component_percent_legend()
 
                 # we need to know which nodes are in which section/level of the component
-                in_levels, out_levels = self.in_out_levels_holding_nodes(graph, graph.bow_tie_nodes)
-                scc_levels = self.scc_levels_holding_nodes(graph, graph.bow_tie_nodes)
-                # node positions within the component backgrounds
+                in_levels, out_levels = self.in_out_levels_holding_nodes(graph)
+                scc_levels = self.scc_levels_holding_nodes(graph)
                 
                 # calculate positions for nodes
                 vprop_positions = graph.new_vertex_property("vector<float>")
-                #graph.vertex_properties[str("positions")] = graph.new_vertex_property("vector<float>")
                 self.in_out_node_positions(graph, in_levels, 'in', vprop_positions)
                 self.in_out_node_positions(graph, out_levels, 'out', vprop_positions)
                 self.scc_node_positions(graph, scc_levels, vprop_positions)
                 
-                self.drawSectionLines()
+                if showSections:
+                    self.draw_section_lines()
 
-                # create Tube # todo only show if tube component exists
-                tubePatch = self.draw_tube(graph)
-                ax.add_patch(tubePatch)
+                # create Tube
+                if graph.bow_tie_nodes[5]:  # tube-nodes
+                    tubePatch = self.draw_tube(graph)
+                    ax.add_patch(tubePatch)
 
                 # create Tendril(s)
                 tendrilPatch1 = self.draw_tendril(graph, diameter=0.03, left_x=0.1)
@@ -220,12 +205,17 @@ class Plotting(object):
                 ax.add_patch(tendrilPatch2)
 
                 # concat filenames
-                background_filename = "plots/bowtie_vis_" + name + "_" + str(graphcounter).zfill(3) + "_bg" + ".png"
-                graph_filename = "plots/bowtie_vis_" + name + "_" + str(graphcounter).zfill(3) + "_graph" + ".png"
-                output_filename = "plots/bowtie_vis_" + name + "_" + str(graphcounter).zfill(3) + ".png"
+                filename_prefix = "plots/bowtie_vis_" + name + "_" + str(graphcounter+1).zfill(2)
+                background_filename =  filename_prefix + "_bg" + ".png"
+                graph_filename = filename_prefix + "_graph" + ".png"
+                output_filename = filename_prefix + ".png"
                 #create files
                 plt.savefig(background_filename, frameon=True, pad_inches=0)
                 fig, ax = self.clear_figure(plt)
+                
+                # decide which nodes to plot
+                self.nodes_to_plot(graph, inc=True, scc=True, outc=True, in_tendril=False, out_tendril=False, tube=False, other=False)
+                
                 # figure needs to be empty since zorder of gt-graph cant be changed
                 gt.graph_draw(graph, pos=vprop_positions, \
                                                     vprops={"size": 32, "text": graph.vertex_index, "font_size": 18}, \
@@ -242,9 +232,12 @@ class Plotting(object):
 
                 # reset stuff for next graph in collection
                 plt.clf()
-                self.trapeze_upper_corners = {}
+                self.component_settings = {}
+                self.key_nodes = {}
                 self.scc_circle_radius = 0
                 self.sectionLines = []
+                self.trapeze_upper_corners = {}
+
                 graphcounter += 1
 
     def clear_figure(self, plt):
@@ -270,7 +263,80 @@ class Plotting(object):
         #ax.set_position(paddingBBox)
         return fig, ax
 
-    def scc_levels_holding_nodes(self, g, bow_tie_nodes):
+    def find_key_nodes(self, graph):
+        in_nodes = graph.bow_tie_nodes[0]
+        scc_nodes = graph.bow_tie_nodes[1]
+        out_nodes = graph.bow_tie_nodes[2]
+        in_ten_nodes = graph.bow_tie_nodes[3]
+        out_ten_nodes = graph.bow_tie_nodes[4]
+        tube_nods = graph.bow_tie_nodes[5]
+        other_nodes = graph.bow_tie_nodes[6]
+        in_nodes_to_scc = set()
+        scc_nodes_from_in = set()
+        scc_nodes_to_out = set()
+        scc_nodes_to_both = set()
+        out_nodes_from_scc = set()
+        # get in-nodes that lead into scc
+        for node in in_nodes:
+            for edge in (graph.edges()):
+                # edge starts in node? edge ends in scc?
+                if graph.vertex(node) == edge.source() and int(edge.target()) in scc_nodes:
+                    in_nodes_to_scc.add(node)
+                    scc_nodes_from_in.add(int(edge.target()))
+        
+        # get scc nodes that lead to out
+        for node in scc_nodes:
+            for edge in (graph.edges()):
+                # edge starts in scc? edge ends in out?
+                if graph.vertex(node) == edge.source() and int(edge.target()) in out_nodes:
+                    scc_nodes_to_out.add(node)
+                    out_nodes_from_scc.add(int(edge.target()))
+        
+        # get scc nodes that have a connection to in and out 
+        scc_nodes_to_both = scc_nodes_from_in.intersection(scc_nodes_to_out)
+        
+        # add those which are only connected to other nodes in scc
+        scc_nodes_to_both = scc_nodes_to_both.union(scc_nodes - scc_nodes_from_in - scc_nodes_to_out)
+        
+        # remove scc_nodes_to_both from scc_nodes_from_in
+        scc_nodes_from_in = scc_nodes_from_in.difference(scc_nodes_to_both)
+        # and from out
+        scc_nodes_to_out = scc_nodes_to_out.difference(scc_nodes_to_both)
+
+        # store in class dictionary
+        self.key_nodes["in_nodes_to_scc"] = in_nodes_to_scc
+        self.key_nodes["scc_nodes_from_in"] = scc_nodes_from_in
+        self.key_nodes["scc_nodes_to_out"] = scc_nodes_to_out
+        self.key_nodes["scc_nodes_to_both"] = scc_nodes_to_both
+        self.key_nodes["out_nodes_from_scc"] = out_nodes_from_scc
+
+    def nodes_to_plot(self, graph, inc=True, scc=True, outc=True, in_tendril=False, out_tendril=False, tube=False, other=False):
+        specified_nodes = set()
+        if inc:
+            specified_nodes = specified_nodes.union(graph.bow_tie_nodes[0])
+        if scc:
+            specified_nodes = specified_nodes.union(graph.bow_tie_nodes[1])
+        if outc:
+            specified_nodes = specified_nodes.union(graph.bow_tie_nodes[2])
+        if in_tendril:
+            specified_nodes = specified_nodes.union(graph.bow_tie_nodes[3])
+        if out_tendril:
+            specified_nodes = specified_nodes.union(graph.bow_tie_nodes[4])
+        if tube:
+            specified_nodes = specified_nodes.union(graph.bow_tie_nodes[5])
+        if other:
+            specified_nodes = specified_nodes.union(graph.bow_tie_nodes[6])
+        
+        vprop_specified_nodes = graph.new_vertex_property('boolean')
+        for vertex in graph.vertices():
+            if int(vertex) in specified_nodes:
+                vprop_specified_nodes[vertex]=bool(True)
+            else:
+                vprop_specified_nodes[vertex]=bool(False)
+        # and mask the graph_tool graph
+        graph.set_vertex_filter(vprop_specified_nodes)
+
+    def scc_levels_holding_nodes(self, graph):
         scc_nodes_from_in = self.key_nodes.get("scc_nodes_from_in")
         scc_nodes_to_out = self.key_nodes.get("scc_nodes_to_out")
         scc_nodes_to_both = self.key_nodes.get("scc_nodes_to_both")
@@ -287,11 +353,14 @@ class Plotting(object):
         if len(scc_nodes_to_out):
             number_of_levels += 1
             scc_levels.append(scc_nodes_to_out)
+        # calculate section lines
+        self.scc_section_line_coords(number_of_levels)
+        return scc_levels
 
+    def scc_section_line_coords(self, number_of_levels):
         # one section line needed
         if number_of_levels == 2:
             self.sectionLines.append([center_coordinate, center_coordinate - self.scc_circle_radius])
-
         if number_of_levels == 3:
             # divide circle into 3 sections of equal x-length
             center_offset = self.scc_circle_radius/3
@@ -300,7 +369,6 @@ class Plotting(object):
             y = center_coordinate + np.sqrt((self.scc_circle_radius * self.scc_circle_radius) - np.power((x_coord - center_coordinate), 2))
             self.sectionLines.append([center_coordinate - center_offset, y])
             self.sectionLines.append([center_coordinate + center_offset, y])
-        return scc_levels
 
     def scc_node_positions(self, graph, levels, vprop_positions):
         # calculate node positions
@@ -365,9 +433,9 @@ class Plotting(object):
             vprop_positions[graph.vertex(node)] = np.array([x_coord, y_coord])
         return
     
-    def in_out_levels_holding_nodes(self, g, bow_tie_nodes):
-        in_nodes = bow_tie_nodes[0]
-        out_nodes = bow_tie_nodes[2]
+    def in_out_levels_holding_nodes(self, graph):
+        in_nodes = graph.bow_tie_nodes[0]
+        out_nodes = graph.bow_tie_nodes[2]
         
         scc_nodes_from_in = self.key_nodes.get("scc_nodes_from_in")
         scc_nodes_to_out = self.key_nodes.get("scc_nodes_to_out")
@@ -378,22 +446,22 @@ class Plotting(object):
         scc_nodes_to_out = scc_nodes_to_out.union(scc_nodes_to_both)
 
         # create property map for shortest path to ssc storage
-        vprop_sp_in = g.new_vertex_property("int")
-        vprop_sp_out = g.new_vertex_property("int")
+        vprop_sp_in = graph.new_vertex_property("int")
+        vprop_sp_out = graph.new_vertex_property("int")
         
         # calculate shortest path for every node in IN to every node in scc
         for scc_node in scc_nodes_from_in:
             for in_node in in_nodes:
-                vlist, elist = gt.shortest_path(g, g.vertex(in_node), g.vertex(scc_node))
-                if len(elist) < vprop_sp_in[g.vertex(in_node)]  or vprop_sp_in[g.vertex(in_node)]  is 0:
-                    vprop_sp_in[g.vertex(in_node)]  = len(elist)
+                vlist, elist = gt.shortest_path(graph, graph.vertex(in_node), graph.vertex(scc_node))
+                if len(elist) < vprop_sp_in[graph.vertex(in_node)]  or vprop_sp_in[graph.vertex(in_node)]  is 0:
+                    vprop_sp_in[graph.vertex(in_node)]  = len(elist)
 
         # calculate shortest path for every node in OUT to every node in scc
         for scc_node in scc_nodes_to_out:
             for out_node in out_nodes:
-                vlist, elist = gt.shortest_path(g, g.vertex(scc_node), g.vertex(out_node))
-                if len(elist) < vprop_sp_out[g.vertex(out_node)]  or vprop_sp_out[g.vertex(out_node)]  is 0:
-                    vprop_sp_out[g.vertex(out_node)]  = len(elist)
+                vlist, elist = gt.shortest_path(graph, graph.vertex(scc_node), graph.vertex(out_node))
+                if len(elist) < vprop_sp_out[graph.vertex(out_node)]  or vprop_sp_out[graph.vertex(out_node)]  is 0:
+                    vprop_sp_out[graph.vertex(out_node)]  = len(elist)
 
         # number of sections, equals the edges of the longest path
         in_sections = vprop_sp_in.a.max()
@@ -410,11 +478,11 @@ class Plotting(object):
 
         # add nodes to levels
         for in_node in in_nodes:
-            current_level = vprop_sp_in[g.vertex(in_node)]-1
+            current_level = vprop_sp_in[graph.vertex(in_node)]-1
             in_levels[current_level].append(in_node)
 
         for out_node in out_nodes:
-            current_level = vprop_sp_out[g.vertex(out_node)]-1
+            current_level = vprop_sp_out[graph.vertex(out_node)]-1
             out_levels[current_level].append(out_node)
         return in_levels, out_levels
 
@@ -495,53 +563,6 @@ class Plotting(object):
             # add position
             vprop_positions[graph.vertex(node)] = np.array([x_coord, y_coord])
         return
-
-    def find_key_nodes(self, graph):
-        in_nodes = graph.bow_tie_nodes[0]
-        scc_nodes = graph.bow_tie_nodes[1]
-        out_nodes = graph.bow_tie_nodes[2]
-        in_ten_nodes = graph.bow_tie_nodes[3]
-        out_ten_nodes = graph.bow_tie_nodes[4]
-        tube_nods = graph.bow_tie_nodes[5]
-        other_nodes = graph.bow_tie_nodes[6]
-        in_nodes_to_scc = set()
-        scc_nodes_from_in = set()
-        scc_nodes_to_out = set()
-        scc_nodes_to_both = set()
-        out_nodes_from_scc = set()
-        # get in-nodes that lead into scc
-        for node in in_nodes:
-            for edge in (graph.edges()):
-                # edge starts in node? edge ends in scc?
-                if graph.vertex(node) == edge.source() and int(edge.target()) in scc_nodes:
-                    in_nodes_to_scc.add(node)
-                    scc_nodes_from_in.add(int(edge.target()))
-        
-        # get scc nodes that lead to out
-        for node in scc_nodes:
-            for edge in (graph.edges()):
-                # edge starts in scc? edge ends in out?
-                if graph.vertex(node) == edge.source() and int(edge.target()) in out_nodes:
-                    scc_nodes_to_out.add(node)
-                    out_nodes_from_scc.add(int(edge.target()))
-        
-        # get scc nodes that have a connection to in and out 
-        scc_nodes_to_both = scc_nodes_from_in.intersection(scc_nodes_to_out)
-        
-        # add those which are only connected to other nodes in scc
-        scc_nodes_to_both = scc_nodes_to_both.union(scc_nodes - scc_nodes_from_in - scc_nodes_to_out)
-        
-        # remove scc_nodes_to_both from scc_nodes_from_in
-        scc_nodes_from_in = scc_nodes_from_in.difference(scc_nodes_to_both)
-        # and from out
-        scc_nodes_to_out = scc_nodes_to_out.difference(scc_nodes_to_both)
-
-        # store in class dictionary
-        self.key_nodes["in_nodes_to_scc"] = in_nodes_to_scc
-        self.key_nodes["scc_nodes_from_in"] = scc_nodes_from_in
-        self.key_nodes["scc_nodes_to_out"] = scc_nodes_to_out
-        self.key_nodes["scc_nodes_to_both"] = scc_nodes_to_both
-        self.key_nodes["out_nodes_from_scc"] = out_nodes_from_scc
 
     def draw_scc_in_out(self, graph, ax):
         # component sizes in percent
@@ -813,7 +834,7 @@ class Plotting(object):
     def draw_horizontal_line(self, y, x_padding=0):
         plt.plot((x_padding, 1-x_padding), (y,y), 'k--')
 
-    def drawSectionLines(self):
+    def draw_section_lines(self):
         for line in self.sectionLines:
             self.draw_vertical_line(line[0], line[1])
 
@@ -960,8 +981,8 @@ class Plotting(object):
 
         for i, gc in enumerate(self.graphs):
             data = [graph.bow_tie for graph in self.graphs[i]]
-            changes = [g.bow_tie_changes
-                       for j, g in enumerate(self.graphs[i]) if j in indices]
+            changes = [graph.bow_tie_changes
+                       for j, graph in enumerate(self.graphs[i]) if j in indices]
             fname = 'data_' + gc.label + '.js'
             with io.open(dirpath + fname, 'w', encoding='utf-8') as outfile:
                 outfile.write('var data = {\n')
