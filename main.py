@@ -274,8 +274,6 @@ class Plotting(object):
         scc_nodes_from_in = self.key_nodes.get("scc_nodes_from_in")
         scc_nodes_to_out = self.key_nodes.get("scc_nodes_to_out")
         scc_nodes_to_both = self.key_nodes.get("scc_nodes_to_both")
-        scc_nodes_from_in = scc_nodes_from_in.difference(scc_nodes_to_both) # todo: do this in find_keynodes
-        scc_nodes_to_out = scc_nodes_to_out.difference(scc_nodes_to_both)
 
         # get number of sections
         number_of_levels = 0
@@ -368,12 +366,16 @@ class Plotting(object):
         return
     
     def in_out_levels_holding_nodes(self, g, bow_tie_nodes):
-        # todo: remove duplicated code --> no time improvement but readability (... maybe?!) ?
         in_nodes = bow_tie_nodes[0]
         out_nodes = bow_tie_nodes[2]
         
         scc_nodes_from_in = self.key_nodes.get("scc_nodes_from_in")
         scc_nodes_to_out = self.key_nodes.get("scc_nodes_to_out")
+        scc_nodes_to_both = self.key_nodes.get("scc_nodes_to_both")
+        
+        # 'center' scc nodes can have links to/from trapezes as well --> add them
+        scc_nodes_from_in = scc_nodes_from_in.union(scc_nodes_to_both)
+        scc_nodes_to_out = scc_nodes_to_out.union(scc_nodes_to_both)
 
         # create property map for shortest path to ssc storage
         vprop_sp_in = g.new_vertex_property("int")
@@ -393,24 +395,17 @@ class Plotting(object):
                 if len(elist) < vprop_sp_out[g.vertex(out_node)]  or vprop_sp_out[g.vertex(out_node)]  is 0:
                     vprop_sp_out[g.vertex(out_node)]  = len(elist)
 
-        # sections, equals the edges of the longest path
-        in_sections = 0
-        for in_node in in_nodes:
-            if vprop_sp_in[g.vertex(in_node)] > in_sections:
-                in_sections = vprop_sp_in[g.vertex(in_node)]
-        
-        out_sections = 0
-        for out_node in out_nodes:
-            if vprop_sp_out[g.vertex(out_node)] > out_sections:
-                out_sections = vprop_sp_out[g.vertex(out_node)]
+        # number of sections, equals the edges of the longest path
+        in_sections = vprop_sp_in.a.max()
+        out_sections = vprop_sp_out.a.max()
 
         # a list for every level; stored in the levels list
         in_levels = []
-        for i in range (0, in_sections):
+        for i in range(0, in_sections):
             in_levels.append(list())
 
         out_levels = []
-        for i in range (0, out_sections):
+        for i in range(0, out_sections):
             out_levels.append(list())
 
         # add nodes to levels
@@ -533,9 +528,14 @@ class Plotting(object):
         # get scc nodes that have a connection to in and out 
         scc_nodes_to_both = scc_nodes_from_in.intersection(scc_nodes_to_out)
         
-        # or are only connected to other nodes in scc
+        # add those which are only connected to other nodes in scc
         scc_nodes_to_both = scc_nodes_to_both.union(scc_nodes - scc_nodes_from_in - scc_nodes_to_out)
         
+        # remove scc_nodes_to_both from scc_nodes_from_in
+        scc_nodes_from_in = scc_nodes_from_in.difference(scc_nodes_to_both)
+        # and from out
+        scc_nodes_to_out = scc_nodes_to_out.difference(scc_nodes_to_both)
+
         # store in class dictionary
         self.key_nodes["in_nodes_to_scc"] = in_nodes_to_scc
         self.key_nodes["scc_nodes_from_in"] = scc_nodes_from_in
@@ -858,22 +858,19 @@ class Plotting(object):
             x_range = in_right_x - in_left_x
             in_label_x_coord = in_left_x + x_range / 2
             in_fontsize = min_label_font_size + (font_size_range * in_c)
-            plt.text(in_label_x_coord, 0.02, str(int(in_c * 100)) + "%",
-                     fontsize=in_fontsize, color=in_color)
-        
+            plt.text(in_label_x_coord, 0.02, str(int(in_c * 100)) + "%", fontsize=in_fontsize, color=in_color)
         # SCC Component Label
         if scc_c:
             scc_fontsize = min_label_font_size + (font_size_range * scc_c)
-            plt.text(center_coordinate, 0.02, str(int(scc_c*100)) + "%", 
-                     fontsize=scc_fontsize, color=scc_color)
+            plt.text(center_coordinate, 0.02, str(int(scc_c*100)) + "%", fontsize=scc_fontsize, color=scc_color)
 
         # OUT Component Label
         if out_c:
             x_range = out_right_x - out_left_x
             out_label_x_coord = out_left_x + x_range / 2
             out_fontsize = min_label_font_size + (font_size_range * out_c)
-            plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%",
-                     fontsize=out_fontsize, color=out_color)
+            plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%", fontsize=out_fontsize, color=out_color)
+
     def print_key_nodes_console(self):
         print 'in to scc: \t' + ", ".join(str(node) for node in self.key_nodes.get("in_nodes_to_scc"))
         print 'scc from in: \t' + ", ".join(str(node) for node in self.key_nodes.get("scc_nodes_from_in"))
