@@ -6,6 +6,7 @@ import io
 import pdb
 from itertools import groupby
 from operator import itemgetter
+from os import remove as rmv
 from PIL import Image as img
 
 import numpy as np
@@ -115,9 +116,9 @@ class Graph(gt.Graph):
         # graph size must be the same for comparison (bowtie dics need to be of same size)
         if prev_bow_tie_dict and len(prev_bow_tie_dict) == len(self.bow_tie_dict):
             self.bow_tie_changes = np.zeros((len(c2a), len(c2a)))
-            for n in self:
+            for node in list(self.vertices()):
                 self.bow_tie_changes[prev_bow_tie_dict[n], self.bow_tie_dict[n]] += 1
-            self.bow_tie_changes /= len(self)
+            self.bow_tie_changes /= len(list(self.vertices()))
 
 class GraphCollection(list):
     def __init__(self, label):
@@ -146,7 +147,7 @@ Argument:
 class Plotting(object):
     def __init__(self, graphs):
         self.graphs = graphs
-        self.styles = ['solid', 'dashed']
+        self.styles = ['solid', 'dashed'] # todo: remove?
         #self.colors = ppl.colors.set2
         self.component_settings = {}
         self.key_nodes = {}
@@ -157,7 +158,7 @@ class Plotting(object):
         # matplotlib uses inches, graph_tool uses pixels (100dpi)
         self.screen_inches = 16.00
 
-    def plot_bowtie(self, name, showLegends=True, showSections=True):
+    def plot_bowtie(self, name, show_legends=True, show_sections=True, save_bg_file=False, save_graph_file=False):
         """
         Plots graphs as a bowtie
         Arguments:
@@ -174,11 +175,7 @@ class Plotting(object):
                 self.find_key_nodes(graph)
 
                 # Add in- and out-trapeze (patch) and scc circle (patch) to axis
-                ax, patches = self.draw_scc_in_out(graph, ax)
-                
-                if showLegends:
-                    self.show_component_node_legend(graph, plt)
-                    self.show_component_percent_legend()
+                self.draw_scc_in_out(graph, ax)
 
                 # we need to know which nodes are in which section/level of the component
                 in_levels, out_levels = self.in_out_levels_holding_nodes(graph)
@@ -190,27 +187,37 @@ class Plotting(object):
                 self.in_out_node_positions(graph, out_levels, 'out', vprop_positions)
                 self.scc_node_positions(graph, scc_levels, vprop_positions)
                 
-                if showSections:
+                if show_sections:
                     self.draw_section_lines()
+
+                # create Tendril(s)
+                if graph.bow_tie_nodes[3]:  # in_tendril
+                    tendrilPatch1 = self.draw_tendril(graph, diameter=0.03, left_x=0.1)
+                    tendrilPatch2 = self.draw_tendril(graph, diameter=0.04, left_x=0.2)
+                    ax.add_patch(tendrilPatch1)
+                    ax.add_patch(tendrilPatch2)
 
                 # create Tube
                 if graph.bow_tie_nodes[5]:  # tube-nodes
                     tubePatch = self.draw_tube(graph)
                     ax.add_patch(tubePatch)
 
-                # create Tendril(s)
-                tendrilPatch1 = self.draw_tendril(graph, diameter=0.03, left_x=0.1)
-                tendrilPatch2 = self.draw_tendril(graph, diameter=0.04, left_x=0.2)
-                ax.add_patch(tendrilPatch1)
-                ax.add_patch(tendrilPatch2)
+                # create Other (components)
+                if graph.bow_tie_nodes[6]:
+                    otherPatch = self.draw_other(graph)
+                    # ax.add_patch(otherPatch)
+
+                if show_legends:
+                    self.show_component_node_legend(graph, plt) # add all nodes
+                    self.show_component_percent_legend()
 
                 # concat filenames
-                filename_prefix = "plots/bowtie_vis_" + name + "_" + str(graphcounter+1).zfill(2)
+                filename_prefix = "plots/bowtie_" + name + "_" + str(graphcounter+1).zfill(2)
                 background_filename =  filename_prefix + "_bg" + ".png"
                 graph_filename = filename_prefix + "_graph" + ".png"
                 output_filename = filename_prefix + ".png"
                 #create files
-                plt.savefig(background_filename, frameon=True, pad_inches=0)
+                plt.savefig(background_filename, frameon=True, pad_inches=0) #todo: check if parameters needed
                 fig, ax = self.clear_figure(plt)
                 
                 # decide which nodes to plot
@@ -229,6 +236,12 @@ class Plotting(object):
                 overlay = img.open(graph_filename)
                 background.paste(overlay, (0, 0), overlay)
                 background.save(output_filename)
+
+                # todo: don't generate files of not needed: draw graph on bg image immediately
+                if save_graph_file is False:
+                    rmv(graph_filename)
+                if save_bg_file is False:
+                    rmv(background_filename)
 
                 # reset stuff for next graph in collection
                 plt.clf()
@@ -333,7 +346,7 @@ class Plotting(object):
                 vprop_specified_nodes[vertex]=bool(True)
             else:
                 vprop_specified_nodes[vertex]=bool(False)
-        # and mask the graph_tool graph
+        # apply mask to graph
         graph.set_vertex_filter(vprop_specified_nodes)
 
     def scc_levels_holding_nodes(self, graph):
@@ -341,8 +354,8 @@ class Plotting(object):
         scc_nodes_to_out = self.key_nodes.get("scc_nodes_to_out")
         scc_nodes_to_both = self.key_nodes.get("scc_nodes_to_both")
 
-        # get number of sections
         number_of_levels = 0
+        # array holding array for each level with its nodes
         scc_levels = []
         if len(scc_nodes_from_in):
             number_of_levels += 1
@@ -590,91 +603,91 @@ class Plotting(object):
                                                      edgecolor='#70707D',
                                                      linewidth=1.5,
                                                      zorder=0.5) # higher zorder gets drawn later
-        # IN-Trapeze coordinates
-        # x starts at y axis (x = 0), y varies with size
-        in_bottom_left_x  = 0
-        in_bottom_left_y  = 0.3 - (0.2 * in_c)
-
-        # mirror over coordinate axis (which is as 0.5)
-        in_top_left_x = in_bottom_left_x
-        in_top_left_y = 1 - in_bottom_left_y
-    
-        # The bigger the SCC is, the smaller the overlap
-        scc_overlap = scc_circle_radius / 2  - (scc_circle_radius / 2 * scc_c)
-        
-        # the right x-es
-        in_bottom_right_x = center_coordinate - scc_circle_radius + scc_overlap
-        in_top_right_x = in_bottom_right_x
-
-        # calculate intersection of trapeze and circle for the right x-es
-        # using the Pythagorean theorem
-        in_top_right_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) \
-                         - np.square(in_bottom_right_x - center_coordinate))
-        in_bottom_right_y = 1 - in_top_right_y
-
-        # OUT-Trapeze coordiinates: like above, just mirrored
-        out_bottom_right_x = 1
-        out_bottom_right_y = 0.3 - (0.2 * out_c)
-
-        out_top_right_x = out_bottom_right_x
-        out_top_right_y = 1 - out_bottom_right_y
-
-        out_bottom_left_x = center_coordinate + scc_circle_radius - scc_overlap
-        out_top_left_x = out_bottom_left_x
-
-        out_top_left_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) - \
-                         np.square(out_bottom_left_x - center_coordinate))
-        out_bottom_left_y = 1 - out_top_left_y
-
-        # create numpy arrays with coordinates to create polygon
-        in_trapeze_coordinates = np.array([[in_bottom_left_x, in_bottom_left_y],
-                                        [in_bottom_right_x, in_bottom_right_y],
-                                        [in_top_right_x, in_top_right_y],
-                                        [in_top_left_x, in_top_left_y]])
-
-        out_trapeze_coordinates = np.array([[out_bottom_left_x, out_bottom_left_y],
-                                        [out_bottom_right_x, out_bottom_right_y],
-                                        [out_top_right_x, out_top_right_y],
-                                        [out_top_left_x, out_top_left_y]])
-        
-        scaled_color_value = (250 - (250 * scc_c)) / 255 
-        in_face_color = scaled_color_value, 1, scaled_color_value
-        in_trapeze = patches.Polygon(in_trapeze_coordinates,
-                                                         closed=True,
-                                                         facecolor=in_face_color,
-                                                         edgecolor='#70707D',
-                                                         linewidth=1.5,
-                                                         zorder=0)
-        scaled_color_value = (250 - (250 * scc_c)) / 255 
-        out_face_color = scaled_color_value, scaled_color_value, 1
-        out_trapeze = patches.Polygon(out_trapeze_coordinates,
-                                                          closed=True,
-                                                          facecolor=out_face_color,
-                                                          edgecolor='#70707D',
-                                                          linewidth=1.5,    
-                                                          zorder=0)
         # store component defining points in dictionary (for later node calculations)
         self.scc_circle_radius = scc_circle_radius
-        self.trapeze_upper_corners["in_left_x"] = in_top_left_x
-        self.trapeze_upper_corners["in_left_y"] = in_top_left_y
-        self.trapeze_upper_corners["in_right_x"] = in_top_right_x
-        self.trapeze_upper_corners["in_right_y"] = in_top_right_y
-        self.trapeze_upper_corners["out_left_x"] = out_top_left_x
-        self.trapeze_upper_corners["out_left_y"] = out_top_left_y
-        self.trapeze_upper_corners["out_right_x"] = out_top_right_x
-        self.trapeze_upper_corners["out_right_y"] = out_top_right_y
-
         self.component_settings["scc_percentage"] = scc_c
-        self.component_settings["in_percentage"] = in_c
-        self.component_settings["out_percentage"] = out_c
         self.component_settings["scc_color"] = scc_face_color
-        self.component_settings["in_color"] =  in_face_color
-        self.component_settings["out_color"] =  out_face_color
+        ax.add_patch(scc_circle)
+
+        # The bigger the SCC is, the smaller the overlap with trapezes
+        scc_overlap = scc_circle_radius / 2  - (scc_circle_radius / 2 * scc_c)
+            
+        if in_c:
+            # IN-Trapeze coordinates
+            # x starts at y axis (x = 0), y varies with size
+            in_bottom_left_x  = 0
+            in_bottom_left_y  = 0.3 - (0.2 * in_c)
+
+            # mirror over coordinate axis (which is as 0.5)
+            in_top_left_x = in_bottom_left_x
+            in_top_left_y = 1 - in_bottom_left_y
         
-        in_patch = ax.add_patch(in_trapeze)
-        out_patch = ax.add_patch(out_trapeze)
-        scc_patch = ax.add_patch(scc_circle)
-        return ax, [in_patch, out_patch, scc_patch]
+            # the right x-es
+            in_bottom_right_x = center_coordinate - scc_circle_radius + scc_overlap
+            in_top_right_x = in_bottom_right_x
+
+            # calculate intersection of trapeze and circle for the right x-es
+            # using the Pythagorean theorem
+            in_top_right_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) \
+                             - np.square(in_bottom_right_x - center_coordinate))
+            in_bottom_right_y = 1 - in_top_right_y
+
+            # create numpy arrays with coordinates to create polygon
+            in_trapeze_coordinates = np.array([[in_bottom_left_x, in_bottom_left_y],
+                                            [in_bottom_right_x, in_bottom_right_y],
+                                            [in_top_right_x, in_top_right_y],
+                                            [in_top_left_x, in_top_left_y]])
+            
+            scaled_color_value = (250 - (250 * scc_c)) / 255 
+            in_face_color = scaled_color_value, 1, scaled_color_value
+            in_trapeze = patches.Polygon(in_trapeze_coordinates,
+                                                             closed=True,
+                                                             facecolor=in_face_color,
+                                                             edgecolor='#70707D',
+                                                             linewidth=1.5,
+                                                             zorder=0)
+            self.trapeze_upper_corners["in_left_x"] = in_top_left_x
+            self.trapeze_upper_corners["in_left_y"] = in_top_left_y
+            self.trapeze_upper_corners["in_right_x"] = in_top_right_x
+            self.trapeze_upper_corners["in_right_y"] = in_top_right_y
+            self.component_settings["in_percentage"] = in_c
+            self.component_settings["in_color"] =  in_face_color
+            ax.add_patch(in_trapeze)
+        if out_c:
+            # OUT-Trapeze coordiinates: like above, just mirrored
+            out_bottom_right_x = 1
+            out_bottom_right_y = 0.3 - (0.2 * out_c)
+
+            out_top_right_x = out_bottom_right_x
+            out_top_right_y = 1 - out_bottom_right_y
+
+            out_bottom_left_x = center_coordinate + scc_circle_radius - scc_overlap
+            out_top_left_x = out_bottom_left_x
+
+            out_top_left_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) - \
+                             np.square(out_bottom_left_x - center_coordinate))
+            out_bottom_left_y = 1 - out_top_left_y
+
+            out_trapeze_coordinates = np.array([[out_bottom_left_x, out_bottom_left_y],
+                                            [out_bottom_right_x, out_bottom_right_y],
+                                            [out_top_right_x, out_top_right_y],
+                                            [out_top_left_x, out_top_left_y]])
+            scaled_color_value = (250 - (250 * scc_c)) / 255 
+            out_face_color = scaled_color_value, scaled_color_value, 1
+            out_trapeze = patches.Polygon(out_trapeze_coordinates,
+                                                              closed=True,
+                                                              facecolor=out_face_color,
+                                                              edgecolor='#70707D',
+                                                              linewidth=1.5,
+                                                              zorder=0)
+            self.trapeze_upper_corners["out_left_x"] = out_top_left_x
+            self.trapeze_upper_corners["out_left_y"] = out_top_left_y
+            self.trapeze_upper_corners["out_right_x"] = out_top_right_x
+            self.trapeze_upper_corners["out_right_y"] = out_top_right_y
+            self.component_settings["out_percentage"] = out_c
+            self.component_settings["out_color"] = out_face_color
+            ax.add_patch(out_trapeze)
+        return
 
     def draw_tendril(self, graph, diameter=0.03, left_x=0.1):
         # get trapeze coordinates
@@ -758,7 +771,11 @@ class Plotting(object):
             ]
     
         path = Path(verts, codes)
+        in_ten_color = "#B2B2CC"
+        out_ten_color = "#6B6B7A"
         patch = patches.PathPatch(path, joinstyle='bevel', facecolor='#B2B2CC', edgecolor='#70707D', lw=1.5, zorder=0.4)
+        self.component_settings["in_ten_color"] = in_ten_color
+        self.component_settings["out_ten_color"] = out_ten_color
         return patch
 
     def draw_tube(self, graph):
@@ -819,13 +836,23 @@ class Plotting(object):
             Path.CLOSEPOLY
             ]
         path = Path(verts, codes)
-        patch = patches.PathPatch(path, facecolor='#B2B2CC', edgecolor='#70707D', lw=1.5, zorder=0.4)
+        tube_color = "#E6E6E8"
+        patch = patches.PathPatch(path, facecolor=tube_color, edgecolor='#70707D', lw=1.5, zorder=0.4)
+        self.component_settings["tube_color"] = tube_color
         return patch
 
+    def draw_other(self, graph):
+        other_color = "#DEBD5C"
+        self.component_settings["other_color"] = other_color
+        # TODO
+        return 0
+
     def draw_orientation_lines(self):
-        self.draw_vertical_line(0.5)
+        self.draw_vertical_line(0.25)
+        self.draw_vertical_line(0.50)
+        self.draw_vertical_line(0.75)
         self.draw_horizontal_line(0.25)
-        self.draw_horizontal_line(0.5)
+        self.draw_horizontal_line(0.50)
         self.draw_horizontal_line(0.75)
 
     def draw_vertical_line(self, x, y_padding=0):
@@ -839,19 +866,43 @@ class Plotting(object):
             self.draw_vertical_line(line[0], line[1])
 
     def show_component_node_legend(self, graph, plt):
-        in_color = self.component_settings.get("in_color")
-        scc_color = self.component_settings.get("scc_color")
-        out_color = self.component_settings.get("out_color")
-
-        # create legend (of nodes in components)
-        inc_nodes_grouped_string = "inc: " + self.group_numbers(sorted(graph.bow_tie_nodes[0]))
-        scc_nodes_grouped_string = "scc: " + self.group_numbers(sorted(graph.bow_tie_nodes[1]))
-        out_nodes_grouped_string = "out: " + self.group_numbers(sorted(graph.bow_tie_nodes[2]))
-
-        inc_patch = patches.Patch(label=inc_nodes_grouped_string, color=in_color)
-        scc_patch = patches.Patch(label=scc_nodes_grouped_string, color=scc_color)
-        out_patch = patches.Patch(label=out_nodes_grouped_string, color=out_color)
-        plt.legend(loc=2, frameon=False, borderpad=0, borderaxespad=0, handles=[inc_patch, scc_patch, out_patch])
+        patch_handles = []
+        if len(graph.bow_tie_nodes[0]):
+            inc_grouped_string = "INC: \t" + self.group_numbers(sorted(graph.bow_tie_nodes[0]))
+            in_color = self.component_settings.get("in_color")
+            inc_patch = patches.Patch(label=inc_grouped_string, color=in_color)
+            patch_handles.append(inc_patch)
+        if len(graph.bow_tie_nodes[1]):
+            scc_grouped_string = "SCC: \t" + self.group_numbers(sorted(graph.bow_tie_nodes[1]))
+            scc_color = self.component_settings.get("scc_color")
+            scc_patch = patches.Patch(label=scc_grouped_string, color=scc_color)
+            patch_handles.append(scc_patch)
+        if len(graph.bow_tie_nodes[2]):
+            out_grouped_string = "OUT: \t" + self.group_numbers(sorted(graph.bow_tie_nodes[2]))
+            out_color = self.component_settings.get("out_color")
+            out_patch = patches.Patch(label=out_grouped_string, color=out_color)
+            patch_handles.append(out_patch)
+        if len(graph.bow_tie_nodes[3]):
+            in_tendril_grouped_string = "I_T: \t" + self.group_numbers(sorted(graph.bow_tie_nodes[3]))
+            in_ten_color = self.component_settings.get("in_ten_color")
+            in_tendril_patch = patches.Patch(label=in_tendril_grouped_string, color=in_ten_color)
+            patch_handles.append(in_tendril_patch)
+        if len(graph.bow_tie_nodes[4]):
+            out_tendril_grouped_string = "O_T: \t" + self.group_numbers(sorted(graph.bow_tie_nodes[4]))
+            out_ten_color = self.component_settings.get("out_ten_color")
+            out_tendril_patch = patches.Patch(label=out_tendril_grouped_string, color=out_ten_color)
+            patch_handles.append(out_tendril_patch)
+        if len(graph.bow_tie_nodes[5]):
+            tube_grouped_string = "TUB: \t" + self.group_numbers(sorted(graph.bow_tie_nodes[5]))
+            tube_color = self.component_settings.get("tube_color")
+            tube_patch = patches.Patch(label=tube_grouped_string, color=tube_color)
+            patch_handles.append(tube_patch)
+        if len(graph.bow_tie_nodes[6]):
+            other_grouped_string = "OTH: \t" + self.group_numbers(sorted(graph.bow_tie_nodes[6]))
+            other_color = self.component_settings.get("other_color")
+            other_patch = patches.Patch(label=other_grouped_string, color=other_color)
+            patch_handles.append(other_patch)
+        plt.legend(loc=2, frameon=False, borderpad=0, borderaxespad=0, handles=patch_handles)
 
     def show_component_percent_legend(self):
         in_left_x = self.trapeze_upper_corners.get("in_left_x")
