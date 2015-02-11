@@ -222,7 +222,7 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tTube \t(%.2fs)" %duration)
+        print("Plotting Test End:\tTube \t\t(%.2fs)" %duration)
 
     def test_grow_in(self):
         print("Plotting Test Start:\tGrow IN")
@@ -534,11 +534,12 @@ class TestPlotBowtie(unittest.TestCase):
         graph.add_edge(graph.vertex(6), graph.vertex(8))
         graph.add_edge(graph.vertex(6), graph.vertex(9))
         graph.add_edge(graph.vertex(6), graph.vertex(10))
+        graph.add_edge(graph.vertex(5), graph.vertex(7))
 
         # 4th layer IN
         graph.add_edge(graph.vertex(7), graph.vertex(11))
-        graph.add_edge(graph.vertex(8), graph.vertex(12))
-        graph.add_edge(graph.vertex(9), graph.vertex(11))
+        graph.add_edge(graph.vertex(8), graph.vertex(11))
+        graph.add_edge(graph.vertex(9), graph.vertex(12))
         graph.add_edge(graph.vertex(10), graph.vertex(12))
 
         # 5th layer IN (13, 14, 15, 16, 17)
@@ -754,17 +755,17 @@ if __name__ == '__main__':
         p = TestPlotBowtie('test_tiny')
 
         # uncomment the test-cases you want to run
-        #p.test_tiny()
-        #p.test_small()
+        p.test_tiny()
+        p.test_small()
         p.test_medium()
         p.test_tube()
-        #p.test_big_in()
-        #p.test_big_scc()
-        #p.test_big_out()
-        #p.test_10nodes_in_scc_out()
-        #p.test_20nodes_in_scc_out()
-        #p.test_30nodes_in_scc_out()
-        #p.test_40nodes_in_scc_out()
+        p.test_big_in()
+        p.test_big_scc()
+        p.test_big_out()
+        p.test_10nodes_in_scc_out()
+        p.test_20nodes_in_scc_out()
+        p.test_30nodes_in_scc_out()
+        p.test_40nodes_in_scc_out()
         #p.test_grow_in()
         #p.test_grow_in_scc_out()
         #p.test_grow_shrink()

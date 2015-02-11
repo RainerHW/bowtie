@@ -170,7 +170,7 @@ class Plotting(object):
             # get the graphs out of the graph collection: usually just one graph
             for graph in gc:
                 # Set up Axis and Figure
-                fig, ax = self.clear_figure(plt)
+                fig, ax = self.clear_figure(plt, show_legends)
                 # calculate key nodes of graph
                 self.find_key_nodes(graph)
 
@@ -192,10 +192,15 @@ class Plotting(object):
 
                 # create Tendril(s)
                 if graph.bow_tie_nodes[3]:  # in_tendril
-                    tendrilPatch1 = self.draw_tendril(graph, diameter=0.03, left_x=0.1)
-                    tendrilPatch2 = self.draw_tendril(graph, diameter=0.04, left_x=0.2)
-                    ax.add_patch(tendrilPatch1)
-                    ax.add_patch(tendrilPatch2)
+                    #ax.add_patch(self.draw_tendril(graph, diameter=0.03, position='left', component='in', max_height=0.9))
+                    ax.add_patch(self.draw_tendril(graph, diameter=0.04, position='middle', component='in', max_height=0.8))
+                    ax.add_patch(self.draw_tendril(graph, diameter=0.05, position='right', component='in', max_height=0.85))
+
+                if graph.bow_tie_nodes[4]: # out_tendril
+                    ax.add_patch(self.draw_tendril(graph, diameter=0.03, position='left', component='out', max_height=0.8))
+                    ax.add_patch(self.draw_tendril(graph, diameter=0.04, position='middle', component='out', max_height=0.9))
+                    ax.add_patch(self.draw_tendril(graph, diameter=0.05, position='right', component='out', max_height=0.85))
+                    
 
                 # create Tube
                 if graph.bow_tie_nodes[5]:  # tube-nodes
@@ -218,7 +223,7 @@ class Plotting(object):
                 output_filename = filename_prefix + ".png"
                 #create files
                 plt.savefig(background_filename, frameon=True, pad_inches=0) #todo: check if parameters needed
-                fig, ax = self.clear_figure(plt)
+                fig, ax = self.clear_figure(plt, show_legends)
                 
                 # decide which nodes to plot
                 self.nodes_to_plot(graph, inc=True, scc=True, outc=True, in_tendril=False, out_tendril=False, tube=False, other=False)
@@ -253,27 +258,21 @@ class Plotting(object):
 
                 graphcounter += 1
 
-    def clear_figure(self, plt):
+    def clear_figure(self, plt, show_legends):
         plt.clf()
         fig = plt.gcf()
         ax = plt.gca()
         fig.set_size_inches(self.screen_inches, self.screen_inches)
         ax.set_axis_off()
-        #ax.set_autoscale_on(False)
-        #ax.set_autoscalex_on(False)
-        #ax.set_autoscaley_on(False)
-        #ax.set_xbound(lower=0, upper=1)
-        #ax.set_ybound(lower=0, upper=1)
-        #ax.set_aspect(aspect='equal', adjustable='datalim')
-        
         ax.autoscale(enable=False, axis='both', tight=True)
         ax.set_xlim(left=0, right=1, auto=False)
         ax.set_ylim(bottom=0, top=1, auto=False)
         
         # make figure use entire axis
-        #figurePadding = np.array([[0.0, 0.0], [1, 1]])
-        #paddingBBox = trsf.Bbox(figurePadding)
-        #ax.set_position(paddingBBox)
+        if not show_legends:
+            figurePadding = np.array([[0.0, 0.0], [1, 1]])
+            paddingBBox = trsf.Bbox(figurePadding)
+            ax.set_position(paddingBBox)
         return fig, ax
 
     def find_key_nodes(self, graph):
@@ -689,31 +688,48 @@ class Plotting(object):
             ax.add_patch(out_trapeze)
         return
 
-    def draw_tendril(self, graph, diameter=0.03, left_x=0.1):
-        # get trapeze coordinates
-        in_left_x = self.trapeze_upper_corners.get("in_left_x")
-        in_left_y = self.trapeze_upper_corners.get("in_left_y")
-        in_right_x = self.trapeze_upper_corners.get("in_right_x")
-        in_right_y = self.trapeze_upper_corners.get("in_right_y")
+    def draw_tendril(self, graph, component, diameter=0.03, position='middle', max_height=0.9):
+        # get upper leg of corresponding component
+        if component == 'in':
+            left_x = self.trapeze_upper_corners.get("in_left_x")
+            left_y = self.trapeze_upper_corners.get("in_left_y")
+            right_x = self.trapeze_upper_corners.get("in_right_x")
+            right_y = self.trapeze_upper_corners.get("in_right_y")
+            ten_color = "#B2B2CC"
+            self.component_settings["in_ten_color"] = ten_color
+        elif component == 'out':
+            left_x = self.trapeze_upper_corners.get("out_left_x")
+            left_y = self.trapeze_upper_corners.get("out_left_y")
+            right_x = self.trapeze_upper_corners.get("out_right_x")
+            right_y = self.trapeze_upper_corners.get("out_right_y")
+            ten_color = "#6B6B7A"
+            self.component_settings["out_ten_color"] = ten_color
         
-        out_left_x = self.trapeze_upper_corners.get("out_left_x")
-        out_left_y = self.trapeze_upper_corners.get("out_left_y")
-        out_right_x = self.trapeze_upper_corners.get("out_right_x")
-        out_right_y = self.trapeze_upper_corners.get("out_right_y")
-        
-        # trapeze top leg slopes
-        slope_in = ((in_left_y - in_right_y) / (in_left_x - in_right_x))
-        slope_out = ((out_left_y - out_right_y) / (out_left_x - out_right_x))
+        # determine left x-coord start position for tendril
+        x_range = right_x - left_x - diameter
+        if position == 'left':
+            tendril_left_x = left_x + x_range/4
+        elif position == 'middle':
+            tendril_left_x = left_x + x_range/2
+        elif position == 'right':
+            tendril_left_x = left_x + 3*x_range/4
+        else:
+            print "Error in draw_tendril: 'position' must be 'left', 'middle', or 'right'"
 
-        tendril_left_x = left_x
-        tendril_connect_left_y = in_left_y + slope_in * (tendril_left_x - in_left_x)
+        # slope of top leg
+        slope = ((left_y - right_y) / (left_x - right_x))
+
+        
+        tendril_connect_left_y = left_y + slope * (tendril_left_x - left_x)
 
         tendril_right_x = tendril_left_x + diameter
-        tendril_connect_right_y = in_left_y + slope_in * (tendril_right_x - in_left_x)
+        tendril_connect_right_y = left_y + slope * (tendril_right_x - left_x)
 
         # we don't want to go over the border (1.0) and we still need to close the tendril
-        tendril_max_length = 0.9 - tendril_connect_left_y # todo: make 0.9 dynamic (= tendril length)
-
+        tendril_max_length = max_height - tendril_connect_left_y
+        if tendril_max_length < 0:
+            print "Error in draw_tendril: Can't draw Tendril here"
+            return
         tendril_mid_y = tendril_connect_left_y + tendril_max_length/2
         tendril_top_left_y = tendril_connect_left_y + tendril_max_length
         tendril_top_right_y = tendril_connect_left_y + tendril_max_length
@@ -771,14 +787,10 @@ class Plotting(object):
             ]
     
         path = Path(verts, codes)
-        in_ten_color = "#B2B2CC"
-        out_ten_color = "#6B6B7A"
-        patch = patches.PathPatch(path, joinstyle='bevel', facecolor='#B2B2CC', edgecolor='#70707D', lw=1.5, zorder=0.4)
-        self.component_settings["in_ten_color"] = in_ten_color
-        self.component_settings["out_ten_color"] = out_ten_color
+        patch = patches.PathPatch(path, joinstyle='bevel', facecolor=ten_color, edgecolor='#70707D', lw=1.5, zorder=0.4)
         return patch
 
-    def draw_tube(self, graph):
+    def draw_tube(self, graph, diameter=0.025):
         # get trapeze coordinates (but use the bottom side of trapeze -> '1-')
         in_left_x = self.trapeze_upper_corners.get("in_left_x")
         in_left_y = 1-self.trapeze_upper_corners.get("in_left_y")
@@ -804,16 +816,15 @@ class Plotting(object):
         y_diff = max((in_right_y - line1_start_y), (out_left_y - line1_end_y))
         control_point_one = (center_coordinate, (center_coordinate - self.scc_circle_radius - y_diff))
 
-        tube_diameter = 0.025 # make this dependent of size of tube component
-        control_point_two = (center_coordinate, control_point_one[1]-tube_diameter)
+        control_point_two = (center_coordinate, control_point_one[1]-diameter)
 
         # calculate second line between trapezes, this time we start at right trapeze (path leads back)
         slope_out_y = ((out_left_x - out_right_x) / (out_left_y - out_right_y))
-        line2_start_y = line1_end_y - tube_diameter
+        line2_start_y = line1_end_y - diameter
         line2_start_x = out_left_x + slope_out_y * (line2_start_y - out_left_y)
 
         slope_in_y = ((in_left_x - in_right_x) / (in_left_y - in_right_y))
-        line2_end_y = line1_start_y - tube_diameter
+        line2_end_y = line1_start_y - diameter
         line2_end_x = in_left_x + slope_in_y * (line2_end_y - in_left_y)
 
         verts = [
