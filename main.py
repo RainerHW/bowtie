@@ -585,9 +585,17 @@ class Plotting(object):
         main_components = in_c + scc_c + out_c
 
         # caluclate (new) percentage for each component
-        in_c = in_c / main_components
-        scc_c = scc_c / main_components
-        out_c = out_c / main_components
+        in_c = (in_c / main_components)
+        scc_c = (scc_c / main_components)
+        out_c = (out_c / main_components)
+
+        """
+        print "----------"
+        print in_c
+        print scc_c
+        print out_c
+        print "----------"
+        """
 
         # SCC-Circle: radius varies with size
         scc_circle_radius = 0.05 + (scc_c / 3.5)
@@ -714,6 +722,7 @@ class Plotting(object):
             tendril_left_x = left_x + 3*x_range/4
         else:
             print "Error in draw_tendril: 'position' must be 'left', 'middle', or 'right'"
+            return
 
         # slope of top leg
         slope = ((left_y - right_y) / (left_x - right_x))
@@ -875,6 +884,10 @@ class Plotting(object):
         for line in self.sectionLines:
             self.draw_vertical_line(line[0], line[1])
 
+    def draw_point_patch(self, ax, x, y):
+        rectangle = patches.Rectangle(xy=(x, y), height=.01, width=.01, angle=0, color='g', fill='True', zorder=1)
+        ax.add_patch(rectangle)
+
     def show_component_node_legend(self, graph, plt):
         patch_handles = []
         if len(graph.bow_tie_nodes[0]):
@@ -915,7 +928,7 @@ class Plotting(object):
         plt.legend(loc=2, frameon=False, borderpad=0, borderaxespad=0, handles=patch_handles)
 
     def show_component_percent_legend(self):
-        """
+
         in_left_x = self.trapezoid_upper_corners.get("in_left_x")
         in_right_x = self.trapezoid_upper_corners.get("in_right_x")
         out_left_x = self.trapezoid_upper_corners.get("out_left_x")
@@ -925,9 +938,9 @@ class Plotting(object):
         scc_color = self.component_settings.get("scc_color")
         out_color = self.component_settings.get("out_color")
 
-        in_c = self.component_settings.get("in_percentage")
-        scc_c = self.component_settings.get("scc_percentage")
-        out_c = self.component_settings.get("out_percentage")
+        in_c = (self.component_settings.get("in_percentage"))
+        scc_c = (self.component_settings.get("scc_percentage"))
+        out_c = (self.component_settings.get("out_percentage"))
 
         # create Percentage Labels below components if component > 0%
         # font size depending on component sizes
@@ -935,28 +948,59 @@ class Plotting(object):
         min_label_font_size = 10
         font_size_range = max_label_font_size - min_label_font_size
         
+        # see that percentage adds up to 100
+        sum_percentage = 0
+        largest_component = ""
+        if in_c:
+            in_c = int(round(in_c * 100))
+            sum_percentage += in_c
+            largest_component = "in"
+        if scc_c:
+            scc_c = int(round(scc_c * 100))
+            sum_percentage += scc_c
+            if scc_c > in_c:
+                largest_component = "scc"
+        if out_c:
+            out_c = int(round(out_c * 100))
+            sum_percentage += out_c
+            if out_c > scc_c and out_c > in_c:
+                largest_component = "out"
+
+        if sum_percentage == 99:
+            if largest_component == 'in':
+                in_c += 1
+            elif largest_component == 'out':
+                out_c += 1
+            elif largest_component == 'scc':
+                scc_c += 1
+        elif sum_percentage == 101:
+            if largest_component == 'in':
+                in_c -= 1
+            elif largest_component == 'out':
+                out_c -= 1
+            elif largest_component == 'scc':
+                scc_c -= 1
+
         # Percentage labels at the bottom
         # IN Component Label
         if in_c:
             x_range = in_right_x - in_left_x
             in_label_x_coord = in_left_x + x_range / 2
-            in_fontsize = min_label_font_size + (font_size_range * in_c)
-            plt.text(in_label_x_coord, 0.02, str(int(in_c * 100)) + "%", fontsize=in_fontsize, color=in_color)
+            in_fontsize = min_label_font_size + (font_size_range * in_c/100)
+            plt.text(in_label_x_coord, 0.02, str(in_c) + "%", fontsize=in_fontsize, color=in_color)
         # SCC Component Label
         if scc_c:
-            scc_fontsize = min_label_font_size + (font_size_range * scc_c)
-            plt.text(center_coordinate, 0.02, str(int(scc_c*100)) + "%", fontsize=scc_fontsize, color=scc_color)
+            scc_fontsize = min_label_font_size + (font_size_range * scc_c/100)
+            plt.text(center_coordinate, 0.02, str(scc_c) + "%", fontsize=scc_fontsize, color=scc_color)
 
         # OUT Component Label
         if out_c:
             x_range = out_right_x - out_left_x
             out_label_x_coord = out_left_x + x_range / 2
-            out_fontsize = min_label_font_size + (font_size_range * out_c)
-            plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%", fontsize=out_fontsize, color=out_color)
-        """
+            out_fontsize = min_label_font_size + (font_size_range * out_c/100)
+            plt.text(out_label_x_coord, 0.02, str(out_c) + "%", fontsize=out_fontsize, color=out_color)
 
     def show_component_size_legend(self):
-        """
         in_left_x = self.trapezoid_upper_corners.get("in_left_x")
         in_left_y = self.trapezoid_upper_corners.get("in_left_y")
         in_right_x = self.trapezoid_upper_corners.get("in_right_x")
@@ -967,30 +1011,37 @@ class Plotting(object):
         out_right_x = self.trapezoid_upper_corners.get("out_right_x")
         out_right_y = self.trapezoid_upper_corners.get("out_right_y")
 
-        # trapezoid area: A = (a+c)/2 * h
-        a = (in_right_y - (1 - in_right_y))
-        c = (in_left_y - (1 - in_left_y))
-        h = in_right_x - in_left_x
-        in_area = (a+c)/2 * h
+        in_c = self.component_settings.get("in_percentage")
+        scc_c = self.component_settings.get("scc_percentage")
+        out_c = self.component_settings.get("out_percentage")
 
-        # calculate circular segment
-        segment_height = in_right_x - (center_coordinate - self.scc_circle_radius)
-        center_angle = 2 * atan(a/(2*(self.scc_circle_radius-segment_height)))
-        scc_overlap_area = (np.power(self.scc_circle_radius, 2)/2) * (center_angle - sin(center_angle))
-        
-        in_area -= scc_overlap_area
-        #comp_area = (in_right_x - (center_coordinate - self.scc_circle_radius)) * (in_right_y - (1-in_right_y))
-        
         scc_area = np.power(self.scc_circle_radius, 2)*np.pi
-        print "in_area ", in_area
-        print "scc area: ", scc_area
-        print "in / scc", (in_area / scc_area)
+        print "scc area: \t", scc_area
+        # trapezoid area: A = (a+c)/2 * h
+        if in_left_y > 0 and in_right_y > 0:
+            a = (in_right_y - (1 - in_right_y))
+            c = (in_left_y - (1 - in_left_y))
+            h = in_right_x - in_left_x
+            in_area = (a+c)/2 * h
+            # calculate circular segment
+            segment_height = in_right_x - (center_coordinate - self.scc_circle_radius)
+            center_angle = 2 * atan(a/(2*(self.scc_circle_radius-segment_height)))
+            scc_overlap_area = (np.power(self.scc_circle_radius, 2)/2) * (center_angle - sin(center_angle))
+            in_area -= scc_overlap_area
+            desired_in = scc_area * (in_c/scc_c)
+            print "desired_in: \t", desired_in
+            print "in_area: \t", in_area
+        if out_left_y > 0 and out_right_y > 0:
+            # trapezoid area: A = (a+c)/2 * h
+            a = (out_left_y - (1 - out_left_y))
+            c = (out_right_y - (1 - out_right_y))
+            h = out_right_x - out_left_x
+            out_area = (a+c)/2 * h
+            desired_out = scc_area * (out_c/scc_c)
+            print "desired_out: \t", desired_out
+            print "out area: \t", out_area
 
-        a = (out_left_y - (1 - out_left_y))
-        c = (out_right_y - (1 - out_right_y))
-        h = out_right_x - out_left_x
-        out_area = (a+c)/2 * h
-        """
+
 
 
     def print_key_nodes_console(self):
@@ -1014,21 +1065,21 @@ class Plotting(object):
         for i, g in groupby(enumerate(sorted_list), lambda (i, x):i-x):
             groups.append(map(itemgetter(1), g))
 
-        groupedItems = ""
-        First = True
+        grouped_items = ""
+        first = True
         for group in groups:
             # semicolons only between groups, not in front of first, not behind last
-            if First:
-                First = False
+            if first:
+                first = False
             else:
-                groupedItems += ", "
+                grouped_items += ", "
             if len(group) > 2:
-                groupedItems += str(group[0]) + "-" + str(group[-1])
+                grouped_items += str(group[0]) + "-" + str(group[-1])
             elif len(group) == 2:
-                groupedItems += str(group[0]) + ", " + str(group[-1])
+                grouped_items += str(group[0]) + ", " + str(group[-1])
             else:
-                groupedItems += str(group[0])
-        return groupedItems
+                grouped_items += str(group[0])
+        return grouped_items
 
 """
 Main: Create one ugly random graph
