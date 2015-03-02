@@ -126,62 +126,6 @@ class TestPlotBowtie(unittest.TestCase):
         duration = (time.time() - start_time)
         print("Plotting Test End:\tSmall Graph\t(%.2fs)" %duration)
 
-    def test_medium(self):
-        print("Plotting Test Start:\tMedium Graph ")
-        start_time = time.time()
-        name = "medium"
-        graph = Graph()
-        vList = graph.add_vertex(20)
-
-        # build in
-        graph.add_edge(graph.vertex(0), graph.vertex(1))
-        graph.add_edge(graph.vertex(1), graph.vertex(2))
-        graph.add_edge(graph.vertex(2), graph.vertex(3))
-        graph.add_edge(graph.vertex(3), graph.vertex(1))
-        graph.add_edge(graph.vertex(16), graph.vertex(1))
-
-        graph.add_edge(graph.vertex(1), graph.vertex(0))
-
-        # build scc
-        graph.add_edge(graph.vertex(2), graph.vertex(5))
-        graph.add_edge(graph.vertex(3), graph.vertex(4))
-        graph.add_edge(graph.vertex(3), graph.vertex(6))
-        graph.add_edge(graph.vertex(4), graph.vertex(5))
-        graph.add_edge(graph.vertex(5), graph.vertex(6))
-        graph.add_edge(graph.vertex(5), graph.vertex(7))
-        graph.add_edge(graph.vertex(6), graph.vertex(4))
-        graph.add_edge(graph.vertex(2), graph.vertex(13))
-        graph.add_edge(graph.vertex(15), graph.vertex(6))
-        graph.add_edge(graph.vertex(4), graph.vertex(15))
-        graph.add_edge(graph.vertex(13), graph.vertex(15))
-        graph.add_edge(graph.vertex(4), graph.vertex(13))
-
-        # build out
-        graph.add_edge(graph.vertex(6), graph.vertex(7))
-        graph.add_edge(graph.vertex(13), graph.vertex(14))
-        graph.add_edge(graph.vertex(14), graph.vertex(17))
-        graph.add_edge(graph.vertex(14), graph.vertex(18))
-        graph.add_edge(graph.vertex(17), graph.vertex(18))
-
-        # build tube
-        graph.add_edge(graph.vertex(3), graph.vertex(9))
-        graph.add_edge(graph.vertex(9), graph.vertex(10))
-        graph.add_edge(graph.vertex(10), graph.vertex(11))
-        graph.add_edge(graph.vertex(11), graph.vertex(7))
-
-        # Out-Tendril
-        graph.add_edge(graph.vertex(8), graph.vertex(7))
-
-        # Other
-        graph.add_edge(graph.vertex(8), graph.vertex(12))
-
-        # In-Tendril
-        graph.add_edge(graph.vertex(16), graph.vertex(19))
-
-        self.plot_graph(graph, name)
-        duration = (time.time() - start_time)
-        print("Plotting Test End:\tMedium Graph \t(%.2fs)" %duration)
-
     def test_tube(self):
         print("Plotting Test Start:\tTube ")
         start_time = time.time()
@@ -714,10 +658,65 @@ class TestPlotBowtie(unittest.TestCase):
         graph.add_edge(graph.vertex(14), graph.vertex(20))
         graph.add_edge(graph.vertex(13), graph.vertex(21))
 
-                
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
         print("Plotting Test End:\tBig Out \t(%.2fs)" %duration)
+
+    def test_all_components(self):
+        print("Plotting Test Start:\tAll Components")
+        start_time = time.time()
+        name = "all_components"
+        graph = Graph()
+        vList = graph.add_vertex(20)
+
+        # build in
+        graph.add_edge(graph.vertex(0), graph.vertex(1))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+        graph.add_edge(graph.vertex(3), graph.vertex(1))
+        graph.add_edge(graph.vertex(16), graph.vertex(1))
+
+        graph.add_edge(graph.vertex(1), graph.vertex(0))
+
+        # build scc
+        graph.add_edge(graph.vertex(2), graph.vertex(5))
+        graph.add_edge(graph.vertex(3), graph.vertex(4))
+        graph.add_edge(graph.vertex(3), graph.vertex(6))
+        graph.add_edge(graph.vertex(4), graph.vertex(5))
+        graph.add_edge(graph.vertex(5), graph.vertex(6))
+        graph.add_edge(graph.vertex(5), graph.vertex(7))
+        graph.add_edge(graph.vertex(6), graph.vertex(4))
+        graph.add_edge(graph.vertex(2), graph.vertex(13))
+        graph.add_edge(graph.vertex(15), graph.vertex(6))
+        graph.add_edge(graph.vertex(4), graph.vertex(15))
+        graph.add_edge(graph.vertex(13), graph.vertex(15))
+        graph.add_edge(graph.vertex(4), graph.vertex(13))
+
+        # build out
+        graph.add_edge(graph.vertex(6), graph.vertex(7))
+        graph.add_edge(graph.vertex(13), graph.vertex(14))
+        graph.add_edge(graph.vertex(14), graph.vertex(17))
+        graph.add_edge(graph.vertex(14), graph.vertex(18))
+        graph.add_edge(graph.vertex(17), graph.vertex(18))
+
+        # build tube
+        graph.add_edge(graph.vertex(3), graph.vertex(9))
+        graph.add_edge(graph.vertex(9), graph.vertex(10))
+        graph.add_edge(graph.vertex(10), graph.vertex(11))
+        graph.add_edge(graph.vertex(11), graph.vertex(7))
+
+        # Out-Tendril
+        graph.add_edge(graph.vertex(8), graph.vertex(7))
+
+        # Other
+        graph.add_edge(graph.vertex(8), graph.vertex(12))
+
+        # In-Tendril
+        graph.add_edge(graph.vertex(16), graph.vertex(19))
+
+        self.plot_graph(graph, name)
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\tAll Components\t(%.2fs)" %duration)
 
     def plot_graph(self, graph, testcase):
         """
@@ -757,7 +756,6 @@ if __name__ == '__main__':
         # uncomment the test-cases you want to run
         p.test_tiny()
         p.test_small()
-        p.test_medium()
         p.test_tube()
         p.test_big_in()
         p.test_big_scc()
@@ -766,7 +764,8 @@ if __name__ == '__main__':
         p.test_20nodes_in_scc_out()
         p.test_30nodes_in_scc_out()
         p.test_40nodes_in_scc_out()
-        #p.test_grow_in()
+        p.test_all_components()
+        p.test_grow_in()
         #p.test_grow_in_scc_out()
         #p.test_grow_shrink()
 

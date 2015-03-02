@@ -3,21 +3,19 @@
 from __future__ import division, unicode_literals
 import random
 import io
-import pdb
 from itertools import groupby
+from itertools import izip
+from math import atan, sin, degrees
 from operator import itemgetter
 from os import remove as rmv
 from PIL import Image as img
 
-import numpy as np
-import networkx as nx
-
-# import matplotlib
 # matplotlib.use('GTKAgg')
 import matplotlib.pyplot as plt
 plt.switch_backend('cairo')
 import matplotlib.patches as patches
 import matplotlib.transforms as trsf
+import numpy as np
 from matplotlib.path import Path
 #import prettyplotlib as ppl
 
@@ -153,12 +151,12 @@ class Plotting(object):
         self.key_nodes = {}
         self.scc_circle_radius = 0
         self.sectionLines = []
-        self.trapeze_upper_corners = {}
+        self.trapezoid_upper_corners = {}
 
         # matplotlib uses inches, graph_tool uses pixels (100dpi)
         self.screen_inches = 16.00
 
-    def plot_bowtie(self, name, show_legends=True, show_sections=True, save_bg_file=False, save_graph_file=False):
+    def plot_bowtie(self, name, show_legends=True, show_sections=True, save_bg_file=True, save_graph_file=False, only_background=True):
         """
         Plots graphs as a bowtie
         Arguments:
@@ -174,7 +172,7 @@ class Plotting(object):
                 # calculate key nodes of graph
                 self.find_key_nodes(graph)
 
-                # Add in- and out-trapeze (patch) and scc circle (patch) to axis
+                # Add in- and out-trapezoid (patch) and scc circle (patch) to axis
                 self.draw_scc_in_out(graph, ax)
 
                 # we need to know which nodes are in which section/level of the component
@@ -200,7 +198,6 @@ class Plotting(object):
                     ax.add_patch(self.draw_tendril(graph, diameter=0.03, position='left', component='out', max_height=0.8))
                     ax.add_patch(self.draw_tendril(graph, diameter=0.04, position='middle', component='out', max_height=0.9))
                     ax.add_patch(self.draw_tendril(graph, diameter=0.05, position='right', component='out', max_height=0.85))
-                    
 
                 # create Tube
                 if graph.bow_tie_nodes[5]:  # tube-nodes
@@ -215,6 +212,7 @@ class Plotting(object):
                 if show_legends:
                     self.show_component_node_legend(graph, plt) # add all nodes
                     self.show_component_percent_legend()
+                    self.show_component_size_legend()
 
                 # concat filenames
                 filename_prefix = "plots/bowtie_" + name + "_" + str(graphcounter+1).zfill(2)
@@ -254,7 +252,7 @@ class Plotting(object):
                 self.key_nodes = {}
                 self.scc_circle_radius = 0
                 self.sectionLines = []
-                self.trapeze_upper_corners = {}
+                self.trapezoid_upper_corners = {}
 
                 graphcounter += 1
 
@@ -269,8 +267,9 @@ class Plotting(object):
         ax.set_ylim(bottom=0, top=1, auto=False)
         
         # make figure use entire axis
-        if not show_legends:
-            figurePadding = np.array([[0.0, 0.0], [1, 1]])
+        if show_legends:
+            # figurePadding = np.array([[0.0, 0.0], [1, 1]])
+            figurePadding = np.array([[0.05, 0.05], [0.95, 0.95]])
             paddingBBox = trsf.Bbox(figurePadding)
             ax.set_position(paddingBBox)
         return fig, ax
@@ -453,7 +452,7 @@ class Plotting(object):
         scc_nodes_to_out = self.key_nodes.get("scc_nodes_to_out")
         scc_nodes_to_both = self.key_nodes.get("scc_nodes_to_both")
         
-        # 'center' scc nodes can have links to/from trapezes as well --> add them
+        # 'center' scc nodes can have links to/from trapezoids as well --> add them
         scc_nodes_from_in = scc_nodes_from_in.union(scc_nodes_to_both)
         scc_nodes_to_out = scc_nodes_to_out.union(scc_nodes_to_both)
 
@@ -502,27 +501,27 @@ class Plotting(object):
         if len(levels) == 0:
             return
         if component == 'in':
-            # trapeze corners
-            left_x = self.trapeze_upper_corners.get("in_left_x")
-            left_y = self.trapeze_upper_corners.get("in_left_y")
-            right_x = self.trapeze_upper_corners.get("in_right_x")
-            right_y = self.trapeze_upper_corners.get("in_right_y")
+            # trapezoid corners
+            left_x = self.trapezoid_upper_corners.get("in_left_x")
+            left_y = self.trapezoid_upper_corners.get("in_left_y")
+            right_x = self.trapezoid_upper_corners.get("in_right_x")
+            right_y = self.trapezoid_upper_corners.get("in_right_y")
         elif  component == 'out':
-            left_x = self.trapeze_upper_corners.get("out_left_x")
-            left_y = self.trapeze_upper_corners.get("out_left_y")
-            right_x = self.trapeze_upper_corners.get("out_right_x")
-            right_y = self.trapeze_upper_corners.get("out_right_y")
+            left_x = self.trapezoid_upper_corners.get("out_left_x")
+            left_y = self.trapezoid_upper_corners.get("out_left_y")
+            right_x = self.trapezoid_upper_corners.get("out_right_x")
+            right_y = self.trapezoid_upper_corners.get("out_right_y")
             # reverse the order, lowest level must be on top
             levels.reverse()
         else:
             return
-        # sections for trapeze
+        # sections for trapezoid
         sections = len(levels)
-        # get slope of the top leg of the trapeze
+        # get slope of the top leg of the trapezoid
         slope_m = ((left_y - right_y) / (left_x - right_x))
         
         if component == 'in':
-            # use trapeze only until overlap with circle
+            # use trapezoid only until overlap with circle
             right_x = center_coordinate - self.scc_circle_radius
             # need to recalculate right_y
             right_y = slope_m * (right_x - left_x) + left_y
@@ -542,7 +541,7 @@ class Plotting(object):
             # sections distributed evenly
             right_x = left_x + (x_length / sections)
             right_y = slope_m * (right_x - left_x) + left_y
-            if sections > 1 and right_x != self.trapeze_upper_corners.get("out_right_x"):
+            if sections > 1 and right_x != self.trapezoid_upper_corners.get("out_right_x"):
                 self.sectionLines.append([right_x, 1-right_y])
             # calculate positions in each section alone
             self.in_out_nodes_in_section_positions(graph, levelNodes, left_x, right_x, left_y, right_y, vprop_positions)
@@ -553,17 +552,17 @@ class Plotting(object):
     def in_out_nodes_in_section_positions(self, graph, nodes, left_x, right_x, left_y, right_y, vprop_positions):
         if len(nodes) is 0:
             return {}
-        # the 'height' of the Trapeze (the trapezes are lying on the side)
+        # the 'height' of the trapezoid (the trapezoids are lying on the side)
         x_range = right_x - left_x
 
-        # get slope of the top leg of the trapeze
+        # get slope of the top leg of the trapezoid
         slope_m = ((left_y - right_y) / (left_x - right_x))
         
         # for every node in the component
         for index, node in enumerate(nodes):
             # x is in center of the sections
             x_coord = left_x + x_range/2
-            # calculate the y trapeze_upper_corners for given x in trapeze
+            # calculate the y trapezoid_upper_corners for given x in trapezoid
             # they vary for every x
             max_y_coord = slope_m * (x_coord - left_x) + left_y
             y_start = 1 - max_y_coord
@@ -608,11 +607,11 @@ class Plotting(object):
         self.component_settings["scc_color"] = scc_face_color
         ax.add_patch(scc_circle)
 
-        # The bigger the SCC is, the smaller the overlap with trapezes
+        # The bigger the SCC is, the smaller the overlap with trapezoids
         scc_overlap = scc_circle_radius / 2  - (scc_circle_radius / 2 * scc_c)
             
         if in_c:
-            # IN-Trapeze coordinates
+            # IN-trapezoid coordinates
             # x starts at y axis (x = 0), y varies with size
             in_bottom_left_x  = 0
             in_bottom_left_y  = 0.3 - (0.2 * in_c)
@@ -625,35 +624,35 @@ class Plotting(object):
             in_bottom_right_x = center_coordinate - scc_circle_radius + scc_overlap
             in_top_right_x = in_bottom_right_x
 
-            # calculate intersection of trapeze and circle for the right x-es
+            # calculate intersection of trapezoid and circle for the right x-es
             # using the Pythagorean theorem
             in_top_right_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) \
                              - np.square(in_bottom_right_x - center_coordinate))
             in_bottom_right_y = 1 - in_top_right_y
 
             # create numpy arrays with coordinates to create polygon
-            in_trapeze_coordinates = np.array([[in_bottom_left_x, in_bottom_left_y],
+            in_trapezoid_coordinates = np.array([[in_bottom_left_x, in_bottom_left_y],
                                             [in_bottom_right_x, in_bottom_right_y],
                                             [in_top_right_x, in_top_right_y],
                                             [in_top_left_x, in_top_left_y]])
             
-            scaled_color_value = (250 - (250 * scc_c)) / 255 
+            scaled_color_value = (250 - (250 * in_c)) / 255 
             in_face_color = scaled_color_value, 1, scaled_color_value
-            in_trapeze = patches.Polygon(in_trapeze_coordinates,
+            in_trapezoid = patches.Polygon(in_trapezoid_coordinates,
                                                              closed=True,
                                                              facecolor=in_face_color,
                                                              edgecolor='#70707D',
                                                              linewidth=1.5,
                                                              zorder=0)
-            self.trapeze_upper_corners["in_left_x"] = in_top_left_x
-            self.trapeze_upper_corners["in_left_y"] = in_top_left_y
-            self.trapeze_upper_corners["in_right_x"] = in_top_right_x
-            self.trapeze_upper_corners["in_right_y"] = in_top_right_y
+            self.trapezoid_upper_corners["in_left_x"] = in_top_left_x
+            self.trapezoid_upper_corners["in_left_y"] = in_top_left_y
+            self.trapezoid_upper_corners["in_right_x"] = in_top_right_x
+            self.trapezoid_upper_corners["in_right_y"] = in_top_right_y
             self.component_settings["in_percentage"] = in_c
             self.component_settings["in_color"] =  in_face_color
-            ax.add_patch(in_trapeze)
+            ax.add_patch(in_trapezoid)
         if out_c:
-            # OUT-Trapeze coordiinates: like above, just mirrored
+            # OUT-trapezoid coordiinates: like above, just mirrored
             out_bottom_right_x = 1
             out_bottom_right_y = 0.3 - (0.2 * out_c)
 
@@ -667,41 +666,41 @@ class Plotting(object):
                              np.square(out_bottom_left_x - center_coordinate))
             out_bottom_left_y = 1 - out_top_left_y
 
-            out_trapeze_coordinates = np.array([[out_bottom_left_x, out_bottom_left_y],
+            out_trapezoid_coordinates = np.array([[out_bottom_left_x, out_bottom_left_y],
                                             [out_bottom_right_x, out_bottom_right_y],
                                             [out_top_right_x, out_top_right_y],
                                             [out_top_left_x, out_top_left_y]])
-            scaled_color_value = (250 - (250 * scc_c)) / 255 
+            scaled_color_value = (250 - (250 * out_c)) / 255 
             out_face_color = scaled_color_value, scaled_color_value, 1
-            out_trapeze = patches.Polygon(out_trapeze_coordinates,
+            out_trapezoid = patches.Polygon(out_trapezoid_coordinates,
                                                               closed=True,
                                                               facecolor=out_face_color,
                                                               edgecolor='#70707D',
                                                               linewidth=1.5,
                                                               zorder=0)
-            self.trapeze_upper_corners["out_left_x"] = out_top_left_x
-            self.trapeze_upper_corners["out_left_y"] = out_top_left_y
-            self.trapeze_upper_corners["out_right_x"] = out_top_right_x
-            self.trapeze_upper_corners["out_right_y"] = out_top_right_y
+            self.trapezoid_upper_corners["out_left_x"] = out_top_left_x
+            self.trapezoid_upper_corners["out_left_y"] = out_top_left_y
+            self.trapezoid_upper_corners["out_right_x"] = out_top_right_x
+            self.trapezoid_upper_corners["out_right_y"] = out_top_right_y
             self.component_settings["out_percentage"] = out_c
             self.component_settings["out_color"] = out_face_color
-            ax.add_patch(out_trapeze)
+            ax.add_patch(out_trapezoid)
         return
 
     def draw_tendril(self, graph, component, diameter=0.03, position='middle', max_height=0.9):
         # get upper leg of corresponding component
         if component == 'in':
-            left_x = self.trapeze_upper_corners.get("in_left_x")
-            left_y = self.trapeze_upper_corners.get("in_left_y")
-            right_x = self.trapeze_upper_corners.get("in_right_x")
-            right_y = self.trapeze_upper_corners.get("in_right_y")
+            left_x = self.trapezoid_upper_corners.get("in_left_x")
+            left_y = self.trapezoid_upper_corners.get("in_left_y")
+            right_x = self.trapezoid_upper_corners.get("in_right_x")
+            right_y = self.trapezoid_upper_corners.get("in_right_y")
             ten_color = "#B2B2CC"
             self.component_settings["in_ten_color"] = ten_color
         elif component == 'out':
-            left_x = self.trapeze_upper_corners.get("out_left_x")
-            left_y = self.trapeze_upper_corners.get("out_left_y")
-            right_x = self.trapeze_upper_corners.get("out_right_x")
-            right_y = self.trapeze_upper_corners.get("out_right_y")
+            left_x = self.trapezoid_upper_corners.get("out_left_x")
+            left_y = self.trapezoid_upper_corners.get("out_left_y")
+            right_x = self.trapezoid_upper_corners.get("out_right_x")
+            right_y = self.trapezoid_upper_corners.get("out_right_y")
             ten_color = "#6B6B7A"
             self.component_settings["out_ten_color"] = ten_color
         
@@ -748,7 +747,7 @@ class Plotting(object):
 
         verts = [
             # left line tendril going up
-            (tendril_left_x, tendril_connect_left_y),                       # left side of tendril connected to trapeze
+            (tendril_left_x, tendril_connect_left_y),                       # left side of tendril connected to trapezoid
             (control_point_low_left_x, control_point_low_y),        # curve tendril into one direction
             (tendril_left_x, tendril_mid_y),                                    # middle of tendril
             (control_point_high_left_x, control_point_high_y),     #curve into other direction
@@ -791,21 +790,21 @@ class Plotting(object):
         return patch
 
     def draw_tube(self, graph, diameter=0.025):
-        # get trapeze coordinates (but use the bottom side of trapeze -> '1-')
-        in_left_x = self.trapeze_upper_corners.get("in_left_x")
-        in_left_y = 1-self.trapeze_upper_corners.get("in_left_y")
-        in_right_x = self.trapeze_upper_corners.get("in_right_x")
-        in_right_y = 1-self.trapeze_upper_corners.get("in_right_y")
+        # get trapezoid coordinates (but use the bottom side of trapezoid -> '1-')
+        in_left_x = self.trapezoid_upper_corners.get("in_left_x")
+        in_left_y = 1-self.trapezoid_upper_corners.get("in_left_y")
+        in_right_x = self.trapezoid_upper_corners.get("in_right_x")
+        in_right_y = 1-self.trapezoid_upper_corners.get("in_right_y")
         
-        out_left_x = self.trapeze_upper_corners.get("out_left_x")
-        out_left_y = 1-self.trapeze_upper_corners.get("out_left_y")
-        out_right_x = self.trapeze_upper_corners.get("out_right_x")
-        out_right_y = 1-self.trapeze_upper_corners.get("out_right_y")
+        out_left_x = self.trapezoid_upper_corners.get("out_left_x")
+        out_left_y = 1-self.trapezoid_upper_corners.get("out_left_y")
+        out_right_x = self.trapezoid_upper_corners.get("out_right_x")
+        out_right_y = 1-self.trapezoid_upper_corners.get("out_right_y")
         
         slope_in = ((in_left_y - in_right_y) / (in_left_x - in_right_x))
         slope_out = ((out_left_y - out_right_y) / (out_left_x - out_right_x))
 
-        # path starts/ends in middle of trapezes arms (trapezes have different arm lengths)
+        # path starts/ends in middle of trapezoids arms (trapezoids have different arm lengths)
         line1_start_x = in_left_x + (in_right_x - in_left_x) / 2
         line1_start_y = in_left_y + slope_in * (line1_start_x - in_left_x)
 
@@ -818,7 +817,7 @@ class Plotting(object):
 
         control_point_two = (center_coordinate, control_point_one[1]-diameter)
 
-        # calculate second line between trapezes, this time we start at right trapeze (path leads back)
+        # calculate second line between trapezoids, this time we start at right trapezoid (path leads back)
         slope_out_y = ((out_left_x - out_right_x) / (out_left_y - out_right_y))
         line2_start_y = line1_end_y - diameter
         line2_start_x = out_left_x + slope_out_y * (line2_start_y - out_left_y)
@@ -828,12 +827,12 @@ class Plotting(object):
         line2_end_x = in_left_x + slope_in_y * (line2_end_y - in_left_y)
 
         verts = [
-            (line1_start_x, line1_start_y), # starts at in_trapeze
+            (line1_start_x, line1_start_y), # starts at in_trapezoid
             control_point_one,                  # move below scc circle
-            (line1_end_x, line1_end_y),   # ends at out trapeze
-            (line2_start_x, line2_start_y), # starts at out trapeze (lower)
+            (line1_end_x, line1_end_y),   # ends at out trapezoid
+            (line2_start_x, line2_start_y), # starts at out trapezoid (lower)
             control_point_two,                  # moves below control point 1
-            (line2_end_x, line2_end_y),   # ends at in trapeze (lower than line1_start)
+            (line2_end_x, line2_end_y),   # ends at in trapezoid (lower than line1_start)
             (line1_start_x, line1_start_y)  # close path
             ]
 
@@ -916,10 +915,11 @@ class Plotting(object):
         plt.legend(loc=2, frameon=False, borderpad=0, borderaxespad=0, handles=patch_handles)
 
     def show_component_percent_legend(self):
-        in_left_x = self.trapeze_upper_corners.get("in_left_x")
-        in_right_x = self.trapeze_upper_corners.get("in_right_x")
-        out_left_x = self.trapeze_upper_corners.get("out_left_x")
-        out_right_x = self.trapeze_upper_corners.get("out_right_x")
+        """
+        in_left_x = self.trapezoid_upper_corners.get("in_left_x")
+        in_right_x = self.trapezoid_upper_corners.get("in_right_x")
+        out_left_x = self.trapezoid_upper_corners.get("out_left_x")
+        out_right_x = self.trapezoid_upper_corners.get("out_right_x")
 
         in_color = self.component_settings.get("in_color")
         scc_color = self.component_settings.get("scc_color")
@@ -953,6 +953,45 @@ class Plotting(object):
             out_label_x_coord = out_left_x + x_range / 2
             out_fontsize = min_label_font_size + (font_size_range * out_c)
             plt.text(out_label_x_coord, 0.02, str(int(out_c*100)) + "%", fontsize=out_fontsize, color=out_color)
+        """
+
+    def show_component_size_legend(self):
+        """
+        in_left_x = self.trapezoid_upper_corners.get("in_left_x")
+        in_left_y = self.trapezoid_upper_corners.get("in_left_y")
+        in_right_x = self.trapezoid_upper_corners.get("in_right_x")
+        in_right_y = self.trapezoid_upper_corners.get("in_right_y")
+        
+        out_left_x = self.trapezoid_upper_corners.get("out_left_x")
+        out_left_y = self.trapezoid_upper_corners.get("out_left_y")
+        out_right_x = self.trapezoid_upper_corners.get("out_right_x")
+        out_right_y = self.trapezoid_upper_corners.get("out_right_y")
+
+        # trapezoid area: A = (a+c)/2 * h
+        a = (in_right_y - (1 - in_right_y))
+        c = (in_left_y - (1 - in_left_y))
+        h = in_right_x - in_left_x
+        in_area = (a+c)/2 * h
+
+        # calculate circular segment
+        segment_height = in_right_x - (center_coordinate - self.scc_circle_radius)
+        center_angle = 2 * atan(a/(2*(self.scc_circle_radius-segment_height)))
+        scc_overlap_area = (np.power(self.scc_circle_radius, 2)/2) * (center_angle - sin(center_angle))
+        
+        in_area -= scc_overlap_area
+        #comp_area = (in_right_x - (center_coordinate - self.scc_circle_radius)) * (in_right_y - (1-in_right_y))
+        
+        scc_area = np.power(self.scc_circle_radius, 2)*np.pi
+        print "in_area ", in_area
+        print "scc area: ", scc_area
+        print "in / scc", (in_area / scc_area)
+
+        a = (out_left_y - (1 - out_left_y))
+        c = (out_right_y - (1 - out_right_y))
+        h = out_right_x - out_left_x
+        out_area = (a+c)/2 * h
+        """
+
 
     def print_key_nodes_console(self):
         print 'in to scc: \t' + ", ".join(str(node) for node in self.key_nodes.get("in_nodes_to_scc"))
@@ -991,122 +1030,19 @@ class Plotting(object):
                 groupedItems += str(group[0])
         return groupedItems
 
-    def stackplot(self):
-        """
-        produce stackplots for the graphcollections
-        [Created by Daniel Lamprecht]
-        """
-        fig, axes = plt.subplots(1, len(self.graphs), squeeze=False,
-                                 figsize=(8 * len(self.graphs), 6))
-
-        legend_proxies = []
-        for i, gc in enumerate(self.graphs):
-            data = [graph.bow_tie for graph in gc]
-            polys = axes[0, i].stackplot(np.arange(1, 1 + len(data)),
-                                         np.transpose(np.array(data)),
-                                         baseline='zero', edgecolor='face')
-            legend_proxies = [plt.Rectangle((0, 0), 1, 1,
-                              fc=p.get_facecolor()[0])
-                              for p in polys]
-        axes[0, -1].legend(legend_proxies, ['IN', 'SCC', 'OUT', 'TL_IN',
-                           'TL_OUT', 'TUBE', 'OTHER'],
-                           loc='upper center', bbox_to_anchor=(0.5, -0.1),
-                           ncol=4, fancybox=True)
-
-        # Beautification
-        for col in range(axes.shape[0]):
-            for row in range(axes.shape[1]):
-                axes[col, row].set_ylabel('% of nodes')
-                axes[col, row].set_ylim(0, 100)
-                axes[col, row].set_xlim(1, 100)
-                axes[col, row].set_xlabel('p in %')
-
-        fig.subplots_adjust(left=0.08, bottom=0.21, right=0.95, top=0.95,
-                            wspace=0.25, hspace=0.4)
-        # plt.show()
-        # save to disk
-        fig.savefig('plots/bowtie_stacked.png')
-        fig.savefig('plots/bowtie_stacked.pdf')
-
-    def alluvial(self):
-        """
-        produce an alluvial diagram (sort of like a flow chart) for the
-        bowtie membership changes for selected indices,
-        as indicated by the global variable indices
-        [Created by Daniel Lamprecht]
-        """
-        ind = '    '  # indentation for the printed HTML and JavaScript files
-        labels = ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
-        dirpath = 'plots/alluvial/'
-        with io.open(dirpath + 'alluvial.html', encoding='utf-8') as infile:
-            template = infile.read().split('"data.js"')
-
-        for i, gc in enumerate(self.graphs):
-            data = [graph.bow_tie for graph in self.graphs[i]]
-            changes = [graph.bow_tie_changes
-                       for j, graph in enumerate(self.graphs[i]) if j in indices]
-            fname = 'data_' + gc.label + '.js'
-            with io.open(dirpath + fname, 'w', encoding='utf-8') as outfile:
-                outfile.write('var data = {\n')
-                outfile.write(ind + '"times": [\n')
-                for iden, idx in enumerate(indices):
-                    t = data[idx]
-                    outfile.write(ind * 2 + '[\n')
-                    for jdx, n in enumerate(t):
-                        outfile.write(ind * 3 + '{\n')
-                        outfile.write(ind * 4 + '"nodeName": "Node ' +
-                                      unicode(jdx) + '",\n')
-                        nid = unicode(iden * len(labels) + jdx)
-                        outfile.write(ind * 4 + '"id": ' + nid +
-                                      ',\n')
-                        outfile.write(ind * 4 + '"nodeValue": ' +
-                                      unicode(int(n * 100)) + ',\n')
-                        outfile.write(ind * 4 + '"nodeLabel": "' +
-                                      labels[jdx] + '"\n')
-                        outfile.write(ind * 3 + '}')
-                        if jdx != (len(t) - 1):
-                            outfile.write(',')
-                        outfile.write('\n')
-                    outfile.write(ind * 2 + ']')
-                    if idx != (len(data) - 1):
-                        outfile.write(',')
-                    outfile.write('\n')
-                outfile.write(ind + '],\n')
-                outfile.write(ind + '"links": [\n')
-
-                for cidx, ci in enumerate(changes):
-                    for mindex, val in np.ndenumerate(ci):
-                        outfile.write(ind * 2 + '{\n')
-                        s = unicode((cidx - 1) * len(labels) + mindex[0])
-                        t = unicode(cidx * len(labels) + mindex[1])
-                        outfile.write(ind * 3 + '"source": ' + s +
-                                      ',\n')
-                        outfile.write(ind * 3 + '"target": ' + t
-                                      + ',\n')
-                        outfile.write(ind * 3 + '"value": ' +
-                                      unicode(val * 5000) + '\n')
-                        outfile.write(ind * 2 + '}')
-                        if mindex != (len(ci) - 1):
-                            outfile.write(',')
-                        outfile.write('\n')
-                outfile.write(ind + ']\n')
-                outfile.write('}')
-            hfname = dirpath + 'alluvial_' + gc.label + '.html'
-            with io.open(hfname, 'w', encoding='utf-8') as outfile:
-                outfile.write(template[0] + '"' + fname + '"' + template[1])
-
-
 """
-Main: Creates Erdös-Renyi graphs, computes the stats and plots them
-[Created by Daniel Lamprecht]
+Main: Create one ugly random graph
 """
 if __name__ == '__main__':
-    # create the graphs
+    # create one random graph
     graphs = []
     gc = GraphCollection('gnp')
-    for p in xrange(0, 100):
-        g = nx.gnp_random_graph(10, p/100, directed=True)
-        gc.append(Graph(g))
+    g = Graph()
+    nodes = 25
+    g.add_vertex(nodes)
+    for i in range(0, 2*nodes):
+        g.add_edge(g.vertex(random.randint(0, nodes-1)), g.vertex(random.randint(0, nodes-1)))
+    gc.append(g)
     graphs.append(gc)
 
     # compute statistics
@@ -1115,3 +1051,5 @@ if __name__ == '__main__':
 
     # plot
     P = Plotting(graphs)
+    P.plot_bowtie("ugly_random_graph", show_legends=False, show_sections=True, save_bg_file=False, save_graph_file=False,
+                  only_background=False)
