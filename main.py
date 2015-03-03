@@ -227,11 +227,11 @@ class Plotting(object):
                 self.nodes_to_plot(graph, inc=True, scc=True, outc=True, in_tendril=False, out_tendril=False, tube=False, other=False)
                 
                 # figure needs to be empty since zorder of gt-graph cant be changed
-                gt.graph_draw(graph, pos=vprop_positions, \
-                                                    vprops={"size": 32, "text": graph.vertex_index, "font_size": 18}, \
-                                                    eprops={"marker_size":12}, \
-                                                    output_size=(int(self.screen_inches*100), int(self.screen_inches*100)), \
-                                                    fit_view=False, \
+                gt.graph_draw(graph, pos=vprop_positions,
+                                                    vprops={"size": 32, "text": graph.vertex_index, "font_size": 18},
+                                                    eprops={"marker_size":12},
+                                                    output_size=(int(self.screen_inches*100), int(self.screen_inches*100)),
+                                                    fit_view=False,
                                                     mplfig=fig)
                 plt.savefig(graph_filename, frameon=True, transparent=True, pad_inches=0)
                 # overlay background and graph
@@ -541,7 +541,7 @@ class Plotting(object):
             # sections distributed evenly
             right_x = left_x + (x_length / sections)
             right_y = slope_m * (right_x - left_x) + left_y
-            if sections > 1 and right_x != self.trapezoid_upper_corners.get("out_right_x"):
+            if sections > 1 and (component == 'in' or (component == 'out' and i != (sections-1))): #right_x != self.trapezoid_upper_corners.get("out_right_x"):
                 self.sectionLines.append([right_x, 1-right_y])
             # calculate positions in each section alone
             self.in_out_nodes_in_section_positions(graph, levelNodes, left_x, right_x, left_y, right_y, vprop_positions)
@@ -584,22 +584,16 @@ class Plotting(object):
         # we only use the main components
         main_components = in_c + scc_c + out_c
 
-        # caluclate (new) percentage for each component
+        # calculate (new) percentage for each component
         in_c = (in_c / main_components)
         scc_c = (scc_c / main_components)
         out_c = (out_c / main_components)
 
-        """
-        print "----------"
-        print in_c
-        print scc_c
-        print out_c
-        print "----------"
-        """
-
         # SCC-Circle: radius varies with size
-        scc_circle_radius = 0.05 + (scc_c / 3.5)
-    
+        max_radius = 0.425
+        min_radius = 0.05
+        scc_circle_radius = min_radius + (scc_c * (max_radius - min_radius))
+
         # color varies with size, starting with light red increases intensity
         scaled_color_value = (250 - (250 * scc_c)) / 255 
         scc_face_color = 1, scaled_color_value, scaled_color_value
@@ -615,85 +609,168 @@ class Plotting(object):
         self.component_settings["scc_color"] = scc_face_color
         ax.add_patch(scc_circle)
 
+        scc_area = np.power(scc_circle_radius, 2)*np.pi
+
         # The bigger the SCC is, the smaller the overlap with trapezoids
         scc_overlap = scc_circle_radius / 2  - (scc_circle_radius / 2 * scc_c)
-            
+
         if in_c:
+            desired_in_area = scc_area * (in_c/scc_c)
             # IN-trapezoid coordinates
-            # x starts at y axis (x = 0), y varies with size
-            in_bottom_left_x  = 0
-            in_bottom_left_y  = 0.3 - (0.2 * in_c)
-
-            # mirror over coordinate axis (which is as 0.5)
-            in_top_left_x = in_bottom_left_x
-            in_top_left_y = 1 - in_bottom_left_y
-        
-            # the right x-es
-            in_bottom_right_x = center_coordinate - scc_circle_radius + scc_overlap
-            in_top_right_x = in_bottom_right_x
-
-            # calculate intersection of trapezoid and circle for the right x-es
-            # using the Pythagorean theorem
-            in_top_right_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) \
-                             - np.square(in_bottom_right_x - center_coordinate))
+            in_right_x = center_coordinate - scc_circle_radius + scc_overlap
+            # calculate corresponding y
+            in_top_right_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) -
+                                                         np.square(in_right_x - center_coordinate))
             in_bottom_right_y = 1 - in_top_right_y
+            in_left_x = 0
+            in_top_left_y_max = 0.95
+            in_top_left_y_min = in_top_right_y + 0.1
+            # get maximum possible trapeze area
+            in_max_area = self.trapezoid_without_circle_segment_area(in_left_x, in_top_left_y_max, in_right_x, in_top_right_y, 'in')
+            in_min_area = self.trapezoid_without_circle_segment_area(in_left_x, in_top_left_y_min, in_right_x, in_top_right_y, 'in')
+            # scc overlapped segment
+            segment_height = in_right_x - (center_coordinate - self.scc_circle_radius)
+            scc_circle_segment = self.circle_segment_area(segment_height, (in_top_right_y-in_bottom_right_y))
+            a = in_top_right_y - in_bottom_right_y
+
+            print "areas: ", in_min_area, desired_in_area, in_max_area
+            # find correct trapezoid size
+            if in_min_area < desired_in_area < in_max_area:
+                # find desired length of c of trapezoid
+                trapezoids_height = in_right_x - in_left_x
+                c = (2 * (desired_in_area + scc_circle_segment)/trapezoids_height) - a
+                in_top_left_y = center_coordinate + (c/2)
+                in_bottom_left_y = center_coordinate - (c/2)
+            # otherwise we need to adjust the x-coord of the trapezoid
+            elif desired_in_area < in_min_area:
+                # find new h for trapezoid by using divide an conquer
+                epsilon = 0.0000001
+                emergency_exit = 1
+                in_top_left_y = in_top_left_y_min
+                x_jump = in_right_x/2
+                slope = ((in_top_left_y - in_top_right_y) / (in_left_x - in_right_x))
+                while True:
+                    in_area = self.trapezoid_without_circle_segment_area(in_left_x, in_top_left_y, in_right_x, in_top_right_y, 'in')
+                    emergency_exit += 1
+                    if (desired_in_area-epsilon) < in_area < (desired_in_area+epsilon):
+                        break
+                    if in_area > desired_in_area:
+                        in_left_x += x_jump
+                        in_top_left_y += slope * x_jump
+                        x_jump /= 2
+                    elif in_area < desired_in_area:
+                        in_left_x -= x_jump
+                        in_top_left_y -= slope * x_jump
+                        x_jump /= 2
+                in_bottom_left_y = 1 - in_top_left_y
+            else:
+                print "ERROR: SCC IS TOO BIG!"
+                print "desired_in: ", desired_in_area
+                print "max_in: ", in_max_area
+                print "scc_area: ", scc_area
+                in_top_left_y = 0.9
+                in_bottom_left_y = 0.1
+            print "IN: desired vs. actual: ", desired_in_area, (self.trapezoid_without_circle_segment_area(in_left_x, in_top_left_y, in_right_x, in_top_right_y, 'in'))
 
             # create numpy arrays with coordinates to create polygon
-            in_trapezoid_coordinates = np.array([[in_bottom_left_x, in_bottom_left_y],
-                                            [in_bottom_right_x, in_bottom_right_y],
-                                            [in_top_right_x, in_top_right_y],
-                                            [in_top_left_x, in_top_left_y]])
-            
-            scaled_color_value = (250 - (250 * in_c)) / 255 
+            in_trapezoid_coordinates = np.array([[in_left_x, in_bottom_left_y],
+                                                 [in_right_x, in_bottom_right_y],
+                                                 [in_right_x, in_top_right_y],
+                                                 [in_left_x, in_top_left_y]])
+
+            scaled_color_value = (250 - (250 * in_c)) / 255
             in_face_color = scaled_color_value, 1, scaled_color_value
             in_trapezoid = patches.Polygon(in_trapezoid_coordinates,
-                                                             closed=True,
-                                                             facecolor=in_face_color,
-                                                             edgecolor='#70707D',
-                                                             linewidth=1.5,
-                                                             zorder=0)
-            self.trapezoid_upper_corners["in_left_x"] = in_top_left_x
+                                           closed=True,
+                                           facecolor=in_face_color,
+                                           edgecolor='#70707D',
+                                           linewidth=1.5,
+                                           zorder=0)
+            self.trapezoid_upper_corners["in_left_x"] = in_left_x
             self.trapezoid_upper_corners["in_left_y"] = in_top_left_y
-            self.trapezoid_upper_corners["in_right_x"] = in_top_right_x
+            self.trapezoid_upper_corners["in_right_x"] = in_right_x
             self.trapezoid_upper_corners["in_right_y"] = in_top_right_y
             self.component_settings["in_percentage"] = in_c
             self.component_settings["in_color"] =  in_face_color
             ax.add_patch(in_trapezoid)
         if out_c:
-            # OUT-trapezoid coordiinates: like above, just mirrored
-            out_bottom_right_x = 1
-            out_bottom_right_y = 0.3 - (0.2 * out_c)
+            desired_out_area = scc_area * (out_c/scc_c)
 
-            out_top_right_x = out_bottom_right_x
-            out_top_right_y = 1 - out_bottom_right_y
-
-            out_bottom_left_x = center_coordinate + scc_circle_radius - scc_overlap
-            out_top_left_x = out_bottom_left_x
-
-            out_top_left_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) - \
-                             np.square(out_bottom_left_x - center_coordinate))
+            out_left_x = center_coordinate + scc_circle_radius - scc_overlap
+            # calculate corresponding y
+            out_top_left_y = center_coordinate + np.sqrt(np.square(scc_circle_radius) -
+                                                         np.square(out_left_x - center_coordinate))
             out_bottom_left_y = 1 - out_top_left_y
+            out_right_x = 1
+            out_top_right_y_max = 0.95
+            out_top_right_y_min = out_top_left_y + 0.1
+            # get maximum possible trapeze area
+            out_min_area = self.trapezoid_without_circle_segment_area(out_left_x, out_top_left_y, out_right_x, out_top_right_y_min, 'out')
+            out_max_area = self.trapezoid_without_circle_segment_area(out_left_x, out_top_left_y, out_right_x, out_top_right_y_max, 'out')
+            # scc overlapped segment
+            segment_height = (center_coordinate + self.scc_circle_radius) - out_left_x
+            scc_circle_segment = self.circle_segment_area(segment_height, (out_top_left_y-out_bottom_left_y))
+            a = out_top_left_y - out_bottom_left_y
 
-            out_trapezoid_coordinates = np.array([[out_bottom_left_x, out_bottom_left_y],
-                                            [out_bottom_right_x, out_bottom_right_y],
-                                            [out_top_right_x, out_top_right_y],
-                                            [out_top_left_x, out_top_left_y]])
-            scaled_color_value = (250 - (250 * out_c)) / 255 
+            # find correct trapezoid size
+            if out_min_area < desired_out_area < out_max_area:
+                # find desired length of c of trapezoid
+                trapezoids_height = out_right_x - out_left_x
+                c = (2 * (desired_out_area + scc_circle_segment)/trapezoids_height) - a
+                out_top_right_y = center_coordinate + (c/2)
+                out_bottom_right_y = center_coordinate - (c/2)
+            # otherwise we need to adjust the x-coord of the trapezoid
+            elif desired_out_area < out_min_area:
+                # find new h for trapezoid by using divide an conquer
+                epsilon = 0.0000001
+                emergency_exit = 1
+                out_top_right_y = out_top_right_y_min
+                x_jump = (out_right_x - out_left_x)/2
+                slope = ((out_top_right_y - out_top_left_y) / (out_right_x - out_left_x))
+                while True:
+                    out_area = self.trapezoid_without_circle_segment_area(out_left_x, out_top_left_y, out_right_x, out_top_right_y, 'out')
+                    emergency_exit += 1
+                    if (desired_out_area-epsilon) < out_area < (desired_out_area+epsilon):
+                        break
+                    if out_area > desired_out_area:
+                        out_right_x -= x_jump
+                        out_top_right_y -= slope * x_jump
+                        self.draw_point_patch(out_right_x, out_top_right_y)
+                        x_jump /= 2
+                    elif out_area < desired_out_area:
+                        out_right_x += x_jump
+                        out_top_right_y += slope * x_jump
+                        self.draw_point_patch(out_right_x, out_top_right_y)
+                        x_jump /= 2
+                out_bottom_right_y = 1 - out_top_right_y
+            else:
+                print "ERROR: SCC IS TOO BIG!"
+                print "desired_out: ", desired_out_area
+                print "max_out: ", out_max_area
+                print "scc_area: ", scc_area
+            print "OUT: desired vs. actual: ", desired_out_area, (self.trapezoid_without_circle_segment_area(out_left_x, out_top_left_y, out_right_x, out_top_right_y, 'out'))
+
+            out_trapezoid_coordinates = np.array([[out_left_x, out_bottom_left_y],
+                                                  [out_right_x, out_bottom_right_y],
+                                                  [out_right_x, out_top_right_y],
+                                                  [out_left_x, out_top_left_y]])
+            scaled_color_value = (250 - (250 * out_c)) / 255
             out_face_color = scaled_color_value, scaled_color_value, 1
             out_trapezoid = patches.Polygon(out_trapezoid_coordinates,
-                                                              closed=True,
-                                                              facecolor=out_face_color,
-                                                              edgecolor='#70707D',
-                                                              linewidth=1.5,
-                                                              zorder=0)
-            self.trapezoid_upper_corners["out_left_x"] = out_top_left_x
+                                            closed=True,
+                                            facecolor=out_face_color,
+                                            edgecolor='#70707D',
+                                            linewidth=1.5,
+                                            zorder=0)
+            self.trapezoid_upper_corners["out_left_x"] = out_left_x
             self.trapezoid_upper_corners["out_left_y"] = out_top_left_y
-            self.trapezoid_upper_corners["out_right_x"] = out_top_right_x
+            self.trapezoid_upper_corners["out_right_x"] = out_right_x
             self.trapezoid_upper_corners["out_right_y"] = out_top_right_y
             self.component_settings["out_percentage"] = out_c
             self.component_settings["out_color"] = out_face_color
             ax.add_patch(out_trapezoid)
         return
+
 
     def draw_tendril(self, graph, component, diameter=0.03, position='middle', max_height=0.9):
         # get upper leg of corresponding component
@@ -884,9 +961,9 @@ class Plotting(object):
         for line in self.sectionLines:
             self.draw_vertical_line(line[0], line[1])
 
-    def draw_point_patch(self, ax, x, y):
+    def draw_point_patch(self, x, y):
         rectangle = patches.Rectangle(xy=(x, y), height=.01, width=.01, angle=0, color='g', fill='True', zorder=1)
-        ax.add_patch(rectangle)
+        plt.gca().add_patch(rectangle)
 
     def show_component_node_legend(self, graph, plt):
         patch_handles = []
@@ -1016,33 +1093,44 @@ class Plotting(object):
         out_c = self.component_settings.get("out_percentage")
 
         scc_area = np.power(self.scc_circle_radius, 2)*np.pi
-        print "scc area: \t", scc_area
         # trapezoid area: A = (a+c)/2 * h
         if in_left_y > 0 and in_right_y > 0:
-            a = (in_right_y - (1 - in_right_y))
-            c = (in_left_y - (1 - in_left_y))
-            h = in_right_x - in_left_x
-            in_area = (a+c)/2 * h
-            # calculate circular segment
-            segment_height = in_right_x - (center_coordinate - self.scc_circle_radius)
-            center_angle = 2 * atan(a/(2*(self.scc_circle_radius-segment_height)))
-            scc_overlap_area = (np.power(self.scc_circle_radius, 2)/2) * (center_angle - sin(center_angle))
-            in_area -= scc_overlap_area
-            desired_in = scc_area * (in_c/scc_c)
-            print "desired_in: \t", desired_in
-            print "in_area: \t", in_area
+            in_area = self.trapezoid_without_circle_segment_area(in_left_x, in_left_y, in_right_x, in_right_y, 'in')
         if out_left_y > 0 and out_right_y > 0:
             # trapezoid area: A = (a+c)/2 * h
             a = (out_left_y - (1 - out_left_y))
             c = (out_right_y - (1 - out_right_y))
             h = out_right_x - out_left_x
             out_area = (a+c)/2 * h
-            desired_out = scc_area * (out_c/scc_c)
-            print "desired_out: \t", desired_out
-            print "out area: \t", out_area
+            # calculate circular segment
+            segment_height = (center_coordinate + self.scc_circle_radius) - out_left_x
+            center_angle = 2 * atan(a/(2*(self.scc_circle_radius-segment_height)))
+            scc_overlap_area = (np.power(self.scc_circle_radius, 2)/2) * (center_angle - sin(center_angle))
+            out_area -= scc_overlap_area
 
+    def trapezoid_without_circle_segment_area(self, left_x, left_y_top, right_x, right_y_top, component):
+        if component == 'in':
+            a = (right_y_top - (1 - right_y_top))
+            c = (left_y_top - (1 - left_y_top))
+            segment_height = right_x - (center_coordinate - self.scc_circle_radius)
+        elif component == 'out':
+            c = (right_y_top - (1 - right_y_top))
+            a = (left_y_top - (1 - left_y_top))
+            segment_height = (center_coordinate + self.scc_circle_radius) - left_x
+        else:
+            return
+        h = right_x - left_x
+        trapezoid_area = (a+c)/2 * h
+        # calculate circular segment area
+        center_angle = 2 * atan(a/(2*(self.scc_circle_radius-segment_height)))
+        scc_overlap_area = (np.power(self.scc_circle_radius, 2)/2) * (center_angle - sin(center_angle))
+        trapezoid_area -= scc_overlap_area
+        return trapezoid_area
 
-
+    def circle_segment_area(self, segment_height, chord):
+        center_angle = 2 * atan(chord/(2*(self.scc_circle_radius-segment_height)))
+        segment_area = (np.power(self.scc_circle_radius, 2)/2) * (center_angle - sin(center_angle))
+        return segment_area
 
     def print_key_nodes_console(self):
         print 'in to scc: \t' + ", ".join(str(node) for node in self.key_nodes.get("in_nodes_to_scc"))
