@@ -152,6 +152,7 @@ class Plotting(object):
         self.scc_circle_radius = 0
         self.sectionLines = []
         self.trapezoid_upper_corners = {}
+        self.tube_key_points = {}
 
         # matplotlib uses inches, graph_tool uses pixels (100dpi)
         self.screen_inches = 16.00
@@ -203,6 +204,10 @@ class Plotting(object):
                 if graph.bow_tie_nodes[5]:  # tube-nodes
                     tubePatch = self.draw_tube(graph)
                     ax.add_patch(tubePatch)
+                    draw_tube_nodes = True
+                    if draw_tube_nodes:
+                        self.tube_node_positions(graph, vprop_positions)
+                        plot_tube = True
 
                 # create Other (components)
                 if graph.bow_tie_nodes[6]:
@@ -224,7 +229,7 @@ class Plotting(object):
                 fig, ax = self.clear_figure(plt, show_legends)
                 
                 # decide which nodes to plot
-                self.nodes_to_plot(graph, inc=True, scc=True, outc=True, in_tendril=False, out_tendril=False, tube=False, other=False)
+                self.nodes_to_plot(graph, inc=True, scc=True, outc=True, in_tendril=False, out_tendril=False, tube=plot_tube, other=False)
                 
                 # figure needs to be empty since zorder of gt-graph cant be changed
                 gt.graph_draw(graph, pos=vprop_positions,
@@ -261,7 +266,7 @@ class Plotting(object):
         fig = plt.gcf()
         ax = plt.gca()
         fig.set_size_inches(self.screen_inches, self.screen_inches)
-        ax.set_axis_off()
+        ax.set_axis_on()
         ax.autoscale(enable=False, axis='both', tight=True)
         ax.set_xlim(left=0, right=1, auto=False)
         ax.set_ylim(bottom=0, top=1, auto=False)
@@ -278,10 +283,10 @@ class Plotting(object):
         in_nodes = graph.bow_tie_nodes[0]
         scc_nodes = graph.bow_tie_nodes[1]
         out_nodes = graph.bow_tie_nodes[2]
-        in_ten_nodes = graph.bow_tie_nodes[3]
-        out_ten_nodes = graph.bow_tie_nodes[4]
-        tube_nods = graph.bow_tie_nodes[5]
-        other_nodes = graph.bow_tie_nodes[6]
+        #in_ten_nodes = graph.bow_tie_nodes[3]
+        #out_ten_nodes = graph.bow_tie_nodes[4]
+        #tube_nodes = graph.bow_tie_nodes[5]
+        #other_nodes = graph.bow_tie_nodes[6]
         in_nodes_to_scc = set()
         scc_nodes_from_in = set()
         scc_nodes_to_out = set()
@@ -464,15 +469,15 @@ class Plotting(object):
         for scc_node in scc_nodes_from_in:
             for in_node in in_nodes:
                 vlist, elist = gt.shortest_path(graph, graph.vertex(in_node), graph.vertex(scc_node))
-                if len(elist) < vprop_sp_in[graph.vertex(in_node)]  or vprop_sp_in[graph.vertex(in_node)]  is 0:
-                    vprop_sp_in[graph.vertex(in_node)]  = len(elist)
+                if len(elist) < vprop_sp_in[graph.vertex(in_node)] or vprop_sp_in[graph.vertex(in_node)] is 0:
+                    vprop_sp_in[graph.vertex(in_node)] = len(elist)
 
-        # calculate shortest path for every node in OUT to every node in scc
+        # calculate shortest path for every node in SCC to every node in OUT
         for scc_node in scc_nodes_to_out:
             for out_node in out_nodes:
                 vlist, elist = gt.shortest_path(graph, graph.vertex(scc_node), graph.vertex(out_node))
-                if len(elist) < vprop_sp_out[graph.vertex(out_node)]  or vprop_sp_out[graph.vertex(out_node)]  is 0:
-                    vprop_sp_out[graph.vertex(out_node)]  = len(elist)
+                if len(elist) < vprop_sp_out[graph.vertex(out_node)] or vprop_sp_out[graph.vertex(out_node)] is 0:
+                    vprop_sp_out[graph.vertex(out_node)] = len(elist)
 
         # number of sections, equals the edges of the longest path
         in_sections = vprop_sp_in.a.max()
@@ -612,7 +617,7 @@ class Plotting(object):
         scc_area = np.power(scc_circle_radius, 2)*np.pi
 
         # The bigger the SCC is, the smaller the overlap with trapezoids
-        scc_overlap = scc_circle_radius / 2  - (scc_circle_radius / 2 * scc_c)
+        scc_overlap = scc_circle_radius/2 - (scc_circle_radius / 2 * scc_c)
 
         if in_c:
             desired_in_area = scc_area * (in_c/scc_c)
@@ -633,7 +638,7 @@ class Plotting(object):
             scc_circle_segment = self.circle_segment_area(segment_height, (in_top_right_y-in_bottom_right_y))
             a = in_top_right_y - in_bottom_right_y
 
-            print "areas: ", in_min_area, desired_in_area, in_max_area
+            #print "areas: ", in_min_area, desired_in_area, in_max_area
             # find correct trapezoid size
             if in_min_area < desired_in_area < in_max_area:
                 # find desired length of c of trapezoid
@@ -668,9 +673,9 @@ class Plotting(object):
                 print "desired_in: ", desired_in_area
                 print "max_in: ", in_max_area
                 print "scc_area: ", scc_area
-                in_top_left_y = 0.9
-                in_bottom_left_y = 0.1
-            print "IN: desired vs. actual: ", desired_in_area, (self.trapezoid_without_circle_segment_area(in_left_x, in_top_left_y, in_right_x, in_top_right_y, 'in'))
+                in_top_left_y = in_top_left_y_max
+                in_bottom_left_y = 1-in_top_left_y
+            #print "IN: desired vs. actual: ", desired_in_area, (self.trapezoid_without_circle_segment_area(in_left_x, in_top_left_y, in_right_x, in_top_right_y, 'in'))
 
             # create numpy arrays with coordinates to create polygon
             in_trapezoid_coordinates = np.array([[in_left_x, in_bottom_left_y],
@@ -735,12 +740,10 @@ class Plotting(object):
                     if out_area > desired_out_area:
                         out_right_x -= x_jump
                         out_top_right_y -= slope * x_jump
-                        self.draw_point_patch(out_right_x, out_top_right_y)
                         x_jump /= 2
                     elif out_area < desired_out_area:
                         out_right_x += x_jump
                         out_top_right_y += slope * x_jump
-                        self.draw_point_patch(out_right_x, out_top_right_y)
                         x_jump /= 2
                 out_bottom_right_y = 1 - out_top_right_y
             else:
@@ -748,7 +751,7 @@ class Plotting(object):
                 print "desired_out: ", desired_out_area
                 print "max_out: ", out_max_area
                 print "scc_area: ", scc_area
-            print "OUT: desired vs. actual: ", desired_out_area, (self.trapezoid_without_circle_segment_area(out_left_x, out_top_left_y, out_right_x, out_top_right_y, 'out'))
+            #print "OUT: desired vs. actual: ", desired_out_area, (self.trapezoid_without_circle_segment_area(out_left_x, out_top_left_y, out_right_x, out_top_right_y, 'out'))
 
             out_trapezoid_coordinates = np.array([[out_left_x, out_bottom_left_y],
                                                   [out_right_x, out_bottom_right_y],
@@ -770,7 +773,6 @@ class Plotting(object):
             self.component_settings["out_color"] = out_face_color
             ax.add_patch(out_trapezoid)
         return
-
 
     def draw_tendril(self, graph, component, diameter=0.03, position='middle', max_height=0.9):
         # get upper leg of corresponding component
@@ -804,7 +806,6 @@ class Plotting(object):
         # slope of top leg
         slope = ((left_y - right_y) / (left_x - right_x))
 
-        
         tendril_connect_left_y = left_y + slope * (tendril_left_x - left_x)
 
         tendril_right_x = tendril_left_x + diameter
@@ -833,12 +834,12 @@ class Plotting(object):
 
         verts = [
             # left line tendril going up
-            (tendril_left_x, tendril_connect_left_y),                       # left side of tendril connected to trapezoid
+            (tendril_left_x, tendril_connect_left_y),               # left side of tendril connected to trapezoid
             (control_point_low_left_x, control_point_low_y),        # curve tendril into one direction
-            (tendril_left_x, tendril_mid_y),                                    # middle of tendril
-            (control_point_high_left_x, control_point_high_y),     #curve into other direction
-            (tendril_left_x, tendril_top_left_y),                              # reached top
-            # build round top: todo: beautify
+            (tendril_left_x, tendril_mid_y),                        # middle of tendril
+            (control_point_high_left_x, control_point_high_y),      # curve into other direction
+            (tendril_left_x, tendril_top_left_y),                   # reached top
+            # build round top:
             (control_point_top_left_x, control_point_top_y),
             (control_point_top_right_x, control_point_top_y),
             (tendril_right_x, tendril_top_right_y), 
@@ -875,7 +876,74 @@ class Plotting(object):
         patch = patches.PathPatch(path, joinstyle='bevel', facecolor=ten_color, edgecolor='#70707D', lw=1.5, zorder=0.4)
         return patch
 
-    def draw_tube(self, graph, diameter=0.025):
+    def tube_nodes_as_chain(self, graph):
+        out_nodes = graph.bow_tie_nodes[2]
+        tube_nodes = graph.bow_tie_nodes[5]
+        if len(tube_nodes) == 0:
+            return []
+        chain = []
+        vprop_sp_tube = graph.new_vertex_property("int")
+
+        # find shortest path to out component for every element in tube
+        for out_node in out_nodes:
+            for tube_node in tube_nodes:
+                vlist, elist = gt.shortest_path(graph, graph.vertex(tube_node), graph.vertex(out_node))
+                if (len(elist) < vprop_sp_tube[graph.vertex(tube_node)] or vprop_sp_tube[graph.vertex(tube_node)] is 0) and len(elist):
+                    vprop_sp_tube[graph.vertex(tube_node)] = len(elist)
+
+        # number of sections, equals the edges of the longest path
+        tube_sections = vprop_sp_tube.a.max()
+        for i in range(0, tube_sections):
+            for tube_node in tube_nodes:
+                if vprop_sp_tube[graph.vertex(tube_node)]-1 == i:
+                    chain.append(tube_node)
+        chain.reverse()
+        return chain
+
+    def tube_node_positions(self, graph, vprop_positions):
+        upper_left_x = self.tube_key_points.get("upper_left_x")
+        upper_left_y = self.tube_key_points.get("upper_left_y")
+        upper_right_x = self.tube_key_points.get("upper_right_x")
+        upper_right_y = self.tube_key_points.get("upper_right_y")
+        upper_bezier_x = self.tube_key_points.get("upper_bezier_x")
+        upper_bezier_y = self.tube_key_points.get("upper_bezier_y")
+        diameter = self.component_settings.get("tube_diameter")
+
+        chain = self.tube_nodes_as_chain(graph)
+        x_range = upper_right_x - upper_left_x + diameter
+        x_step = x_range/(len(chain)+1)
+        upper_left_slope = (upper_left_y - upper_bezier_y) / (upper_left_x - upper_bezier_x)
+        upper_right_slope = (upper_bezier_y - upper_right_y) / (upper_bezier_x - upper_right_x)
+
+        """
+        self.draw_point_patch(upper_left_x, upper_left_y)
+        self.draw_point_patch(upper_right_x, upper_right_y)
+        self.draw_point_patch(upper_bezier_x, upper_bezier_y)
+        self.draw_point_patch(self.tube_key_points.get("lower_bezier_x"), self.tube_key_points.get("lower_bezier_y"))
+        self.draw_point_patch(self.tube_key_points.get("lower_left_x"), self.tube_key_points.get("lower_left_y"))
+        self.draw_point_patch(self.tube_key_points.get("lower_right_x"), self.tube_key_points.get("lower_right_y"))
+        """
+
+        last_y = upper_left_y - diameter/4
+        first_up = True
+        for i, node in enumerate(chain):
+            x_pos = upper_left_x-diameter/2 + (i+1)*x_step
+            if i+1 < (len(chain)/2):
+                y_pos = last_y + upper_left_slope*x_step
+            elif i >= (len(chain)/2):
+                if not len(chain)%2 and first_up:
+                    y_pos = last_y
+                    first_up = False
+                else:
+                    y_pos = last_y + upper_right_slope*x_step
+            else:
+                y_pos = last_y + upper_left_slope*x_step
+            vprop_positions[graph.vertex(node)] = np.array([x_pos, 1-y_pos])
+            differencia = last_y-y_pos
+            last_y = y_pos
+            #self.draw_point_patch(x_pos, y_pos)
+
+    def draw_tube(self, graph, diameter=0.075):
         # get trapezoid coordinates (but use the bottom side of trapezoid -> '1-')
         in_left_x = self.trapezoid_upper_corners.get("in_left_x")
         in_left_y = 1-self.trapezoid_upper_corners.get("in_left_y")
@@ -891,10 +959,10 @@ class Plotting(object):
         slope_out = ((out_left_y - out_right_y) / (out_left_x - out_right_x))
 
         # path starts/ends in middle of trapezoids arms (trapezoids have different arm lengths)
-        line1_start_x = in_left_x + (in_right_x - in_left_x) / 2
+        line1_start_x = in_left_x + (in_right_x - in_left_x)/2 + diameter/2
         line1_start_y = in_left_y + slope_in * (line1_start_x - in_left_x)
 
-        line1_end_x = out_left_x + (out_right_x - out_left_x) / 2
+        line1_end_x = out_left_x + (out_right_x - out_left_x)/2 - diameter/2
         line1_end_y = out_left_y + slope_out * (line1_end_x - out_left_x)
 
         # calculate bézier control point
@@ -904,14 +972,10 @@ class Plotting(object):
         control_point_two = (center_coordinate, control_point_one[1]-diameter)
 
         # calculate second line between trapezoids, this time we start at right trapezoid (path leads back)
-        slope_out_y = ((out_left_x - out_right_x) / (out_left_y - out_right_y))
-        line2_start_y = line1_end_y - diameter
-        line2_start_x = out_left_x + slope_out_y * (line2_start_y - out_left_y)
-
-        slope_in_y = ((in_left_x - in_right_x) / (in_left_y - in_right_y))
-        line2_end_y = line1_start_y - diameter
-        line2_end_x = in_left_x + slope_in_y * (line2_end_y - in_left_y)
-
+        line2_start_x = line1_end_x + diameter
+        line2_start_y = line1_end_y + slope_out * (line2_start_x - line1_end_x)
+        line2_end_x = line1_start_x - diameter
+        line2_end_y = line1_start_y - slope_in * (line1_start_x - line2_end_x)
         verts = [
             (line1_start_x, line1_start_y), # starts at in_trapezoid
             control_point_one,                  # move below scc circle
@@ -934,7 +998,24 @@ class Plotting(object):
         path = Path(verts, codes)
         tube_color = "#E6E6E8"
         patch = patches.PathPatch(path, facecolor=tube_color, edgecolor='#70707D', lw=1.5, zorder=0.4)
+
+        # store settings for further use
         self.component_settings["tube_color"] = tube_color
+        self.component_settings["tube_diameter"] = diameter
+
+        self.tube_key_points["upper_left_x"] = line1_start_x
+        self.tube_key_points["upper_left_y"] = line1_start_y
+        self.tube_key_points["upper_right_x"] = line1_end_x
+        self.tube_key_points["upper_right_y"] = line1_end_y
+        self.tube_key_points["upper_bezier_x"] = control_point_one[0]
+        self.tube_key_points["upper_bezier_y"] = control_point_one[1]
+
+        self.tube_key_points["lower_left_x"] = line2_end_x
+        self.tube_key_points["lower_left_y"] = line2_end_y
+        self.tube_key_points["lower_right_x"] = line2_start_x
+        self.tube_key_points["lower_right_y"] = line2_start_y
+        self.tube_key_points["lower_bezier_x"] = control_point_two[0]
+        self.tube_key_points["lower_bezier_y"] = control_point_two[1]
         return patch
 
     def draw_other(self, graph):
@@ -953,9 +1034,6 @@ class Plotting(object):
 
     def draw_vertical_line(self, x, y_padding=0):
         plt.plot((x, x), (y_padding, 1-y_padding), 'k--')
-
-    def draw_horizontal_line(self, y, x_padding=0):
-        plt.plot((x_padding, 1-x_padding), (y,y), 'k--')
 
     def draw_section_lines(self):
         for line in self.sectionLines:

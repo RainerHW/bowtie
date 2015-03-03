@@ -90,7 +90,7 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, "tiny")
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tTiny Graph\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tTiny Graph\t(%.2fs)\n" % duration)
 
     def test_small(self):
         print("Plotting Test Start:\tSmall Graph")
@@ -124,12 +124,12 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tSmall Graph\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tSmall Graph\t(%.2fs)\n" % duration)
 
-    def test_tube(self):
-        print("Plotting Test Start:\tTube ")
+    def test_ultra_short_tube(self):
+        print("Plotting Test Start:\tUltra Short Tube ")
         start_time = time.time()
-        name = "tube"
+        name = "ultra_short_tube"
         graph = Graph()
         vList = graph.add_vertex(20)
 
@@ -166,7 +166,189 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tTube \t\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tUltra Short Tube \t\t(%.2fs)\n" % duration)
+
+    def test_short_tube(self):
+        print("Plotting Test Start:\tShort Tube ")
+        start_time = time.time()
+        name = "short_tube"
+        graph = Graph()
+        vList = graph.add_vertex(20)
+
+        # build in
+        graph.add_edge(graph.vertex(0), graph.vertex(1))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+        graph.add_edge(graph.vertex(3), graph.vertex(1))
+        graph.add_edge(graph.vertex(4), graph.vertex(5))
+        graph.add_edge(graph.vertex(6), graph.vertex(5))
+        graph.add_edge(graph.vertex(5), graph.vertex(3))
+
+        # build scc
+        graph.add_edge(graph.vertex(3), graph.vertex(7))
+        graph.add_edge(graph.vertex(2), graph.vertex(11))
+        graph.add_edge(graph.vertex(7), graph.vertex(8))
+        graph.add_edge(graph.vertex(8), graph.vertex(9))
+        graph.add_edge(graph.vertex(9), graph.vertex(10))
+        graph.add_edge(graph.vertex(10), graph.vertex(11))
+        graph.add_edge(graph.vertex(11), graph.vertex(7))
+
+        # build out
+        graph.add_edge(graph.vertex(8), graph.vertex(12))
+        graph.add_edge(graph.vertex(12), graph.vertex(13))
+        graph.add_edge(graph.vertex(12), graph.vertex(14))
+        graph.add_edge(graph.vertex(9), graph.vertex(15))
+        graph.add_edge(graph.vertex(15), graph.vertex(16))
+
+        # build tube
+        graph.add_edge(graph.vertex(5), graph.vertex(17))
+        graph.add_edge(graph.vertex(17), graph.vertex(18))
+        graph.add_edge(graph.vertex(18), graph.vertex(19))
+        graph.add_edge(graph.vertex(19), graph.vertex(16))
+
+        self.plot_graph(graph, name)
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\tShort Tube \t\t(%.2fs)\n" % duration)
+
+    def test_medium_tube(self):
+        print("Plotting Test Start:\tMedium Tube ")
+        start_time = time.time()
+        name = "medium_tube"
+        graph = Graph()
+        vList = graph.add_vertex(25)
+
+        # build in
+        graph.add_edge(graph.vertex(0), graph.vertex(1))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+        graph.add_edge(graph.vertex(3), graph.vertex(1))
+        graph.add_edge(graph.vertex(4), graph.vertex(5))
+        graph.add_edge(graph.vertex(6), graph.vertex(5))
+        graph.add_edge(graph.vertex(5), graph.vertex(3))
+
+        # build scc
+        graph.add_edge(graph.vertex(3), graph.vertex(7))
+        graph.add_edge(graph.vertex(2), graph.vertex(11))
+        graph.add_edge(graph.vertex(7), graph.vertex(8))
+        graph.add_edge(graph.vertex(8), graph.vertex(9))
+        graph.add_edge(graph.vertex(9), graph.vertex(10))
+        graph.add_edge(graph.vertex(10), graph.vertex(11))
+        graph.add_edge(graph.vertex(11), graph.vertex(7))
+
+        # build out
+        graph.add_edge(graph.vertex(8), graph.vertex(12))
+        graph.add_edge(graph.vertex(12), graph.vertex(13))
+        graph.add_edge(graph.vertex(12), graph.vertex(14))
+        graph.add_edge(graph.vertex(9), graph.vertex(15))
+        graph.add_edge(graph.vertex(15), graph.vertex(16))
+
+        # build tube
+        graph.add_edge(graph.vertex(5), graph.vertex(17))
+        graph.add_edge(graph.vertex(17), graph.vertex(18))
+        graph.add_edge(graph.vertex(18), graph.vertex(19))
+        graph.add_edge(graph.vertex(19), graph.vertex(20))
+        graph.add_edge(graph.vertex(20), graph.vertex(21))
+        graph.add_edge(graph.vertex(21), graph.vertex(16))
+
+        self.plot_graph(graph, name)
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\tMedium Tube \t\t(%.2fs)\n" % duration)
+
+    def test_long_tube(self):
+        print("Plotting Test Start:\tLong Tube ")
+        start_time = time.time()
+        name = "long_tube"
+        graph = Graph()
+        vList = graph.add_vertex(25)
+
+        # build in
+        graph.add_edge(graph.vertex(0), graph.vertex(1))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+        graph.add_edge(graph.vertex(3), graph.vertex(1))
+        graph.add_edge(graph.vertex(4), graph.vertex(5))
+        graph.add_edge(graph.vertex(6), graph.vertex(5))
+        graph.add_edge(graph.vertex(5), graph.vertex(3))
+
+        # build scc
+        graph.add_edge(graph.vertex(3), graph.vertex(7))
+        graph.add_edge(graph.vertex(2), graph.vertex(11))
+        graph.add_edge(graph.vertex(7), graph.vertex(8))
+        graph.add_edge(graph.vertex(8), graph.vertex(9))
+        graph.add_edge(graph.vertex(9), graph.vertex(10))
+        graph.add_edge(graph.vertex(10), graph.vertex(11))
+        graph.add_edge(graph.vertex(11), graph.vertex(7))
+
+        # build out
+        graph.add_edge(graph.vertex(8), graph.vertex(12))
+        graph.add_edge(graph.vertex(12), graph.vertex(13))
+        graph.add_edge(graph.vertex(12), graph.vertex(14))
+        graph.add_edge(graph.vertex(9), graph.vertex(15))
+        graph.add_edge(graph.vertex(15), graph.vertex(16))
+
+        # build tube
+        graph.add_edge(graph.vertex(5), graph.vertex(17))
+        graph.add_edge(graph.vertex(17), graph.vertex(18))
+        graph.add_edge(graph.vertex(18), graph.vertex(19))
+        graph.add_edge(graph.vertex(19), graph.vertex(20))
+        graph.add_edge(graph.vertex(20), graph.vertex(21))
+        graph.add_edge(graph.vertex(21), graph.vertex(22))
+        graph.add_edge(graph.vertex(22), graph.vertex(23))
+        graph.add_edge(graph.vertex(23), graph.vertex(24))
+        graph.add_edge(graph.vertex(24), graph.vertex(16))
+
+        self.plot_graph(graph, name)
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\tLong Tube \t\t(%.2fs)\n" % duration)
+
+    def test_ultra_long_tube(self):
+        print("Plotting Test Start:\tUltra Long Tube ")
+        start_time = time.time()
+        name = "ultra_long_tube"
+        graph = Graph()
+        vList = graph.add_vertex(26)
+
+        # build in
+        graph.add_edge(graph.vertex(0), graph.vertex(1))
+        graph.add_edge(graph.vertex(1), graph.vertex(2))
+        graph.add_edge(graph.vertex(2), graph.vertex(3))
+        graph.add_edge(graph.vertex(3), graph.vertex(1))
+        graph.add_edge(graph.vertex(4), graph.vertex(5))
+        graph.add_edge(graph.vertex(6), graph.vertex(5))
+        graph.add_edge(graph.vertex(5), graph.vertex(3))
+
+        # build scc
+        graph.add_edge(graph.vertex(3), graph.vertex(7))
+        graph.add_edge(graph.vertex(2), graph.vertex(11))
+        graph.add_edge(graph.vertex(7), graph.vertex(8))
+        graph.add_edge(graph.vertex(8), graph.vertex(9))
+        graph.add_edge(graph.vertex(9), graph.vertex(10))
+        graph.add_edge(graph.vertex(10), graph.vertex(11))
+        graph.add_edge(graph.vertex(11), graph.vertex(7))
+
+        # build out
+        graph.add_edge(graph.vertex(8), graph.vertex(12))
+        graph.add_edge(graph.vertex(12), graph.vertex(13))
+        graph.add_edge(graph.vertex(12), graph.vertex(14))
+        graph.add_edge(graph.vertex(9), graph.vertex(15))
+        graph.add_edge(graph.vertex(15), graph.vertex(16))
+
+        # build tube
+        graph.add_edge(graph.vertex(5), graph.vertex(17))
+        graph.add_edge(graph.vertex(17), graph.vertex(18))
+        graph.add_edge(graph.vertex(18), graph.vertex(19))
+        graph.add_edge(graph.vertex(19), graph.vertex(20))
+        graph.add_edge(graph.vertex(20), graph.vertex(21))
+        graph.add_edge(graph.vertex(21), graph.vertex(22))
+        graph.add_edge(graph.vertex(22), graph.vertex(23))
+        graph.add_edge(graph.vertex(23), graph.vertex(24))
+        graph.add_edge(graph.vertex(24), graph.vertex(25))
+        graph.add_edge(graph.vertex(25), graph.vertex(16))
+
+        self.plot_graph(graph, name)
+        duration = (time.time() - start_time)
+        print("Plotting Test End:\tUltra Long Tube \t\t(%.2fs)\n" % duration)
+
 
     def test_grow_in(self):
         print("Plotting Test Start:\tGrow IN")
@@ -200,7 +382,7 @@ class TestPlotBowtie(unittest.TestCase):
         print("Graphs Created! Starting the plotting")
         self.plot_graph_collection(graphs, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tGrow IN\t\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tGrow IN\t\t(%.2fs)\n" % duration)
 
     def test_grow_in_scc_out(self):
         print("Plotting Test Start:\tGrow")
@@ -247,7 +429,7 @@ class TestPlotBowtie(unittest.TestCase):
         print("Graphs Created! Starting the plotting")
         self.plot_graph_collection(graphs, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tGrow\t\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tGrow\t\t(%.2fs)\n" % duration)
 
     def test_grow_shrink(self):
         print("Plotting Test Start:\tGrow & Shrink (GC)")
@@ -317,7 +499,7 @@ class TestPlotBowtie(unittest.TestCase):
         print("Plotting Graphs")
         self.plot_graph_collection(graphs, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tGrow & Shrink (deep copy)\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tGrow & Shrink (deep copy)\t(%.2fs)\n" % duration)
     
     def test_10nodes_in_scc_out(self):
         print("Plotting Test Start:\t10 Nodes ")
@@ -344,7 +526,7 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\t10 Nodes \t(%.2fs)\n" %duration)
+        print("Plotting Test End:\t10 Nodes \t(%.2fs)\n" % duration)
 
     def test_20nodes_in_scc_out(self):
         print("Plotting Test Start:\t20 Nodes ")
@@ -389,7 +571,7 @@ class TestPlotBowtie(unittest.TestCase):
         
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\t20 Nodes \t(%.2fs)\n" %duration)
+        print("Plotting Test End:\t20 Nodes \t(%.2fs)\n" % duration)
 
     def test_30nodes_in_scc_out(self):
         print("Plotting Test Start:\t30 Nodes ")
@@ -457,7 +639,7 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\t30 Nodes \t(%.2fs)\n" %duration)
+        print("Plotting Test End:\t30 Nodes \t(%.2fs)\n" % duration)
 
     def test_40nodes_in_scc_out(self):
         print("Plotting Test Start:\t40 Nodes ")
@@ -550,7 +732,7 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\t40 Nodes \t(%.2fs)\n" %duration)
+        print("Plotting Test End:\t40 Nodes \t(%.2fs)\n" % duration)
 
     def test_big_in(self):
         print("Plotting Test Start:\tBig In ")
@@ -594,7 +776,7 @@ class TestPlotBowtie(unittest.TestCase):
                 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tBig In \t\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tBig In \t\t(%.2fs)\n" % duration)
 
     def test_big_scc(self):
         print("Plotting Test Start:\tBig SCC")
@@ -617,7 +799,7 @@ class TestPlotBowtie(unittest.TestCase):
         graph.add_edge(graph.vertex(12), graph.vertex(1))
         self.plot_graph(graph, "big_scc")
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tBig SCC\t\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tBig SCC\t\t(%.2fs)\n" % duration)
 
     def test_big_out(self):
         print("Plotting Test Start:\tBig Out ")
@@ -660,7 +842,7 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tBig Out \t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tBig Out \t(%.2fs)\n" % duration)
 
     def test_all_components(self):
         print("Plotting Test Start:\tAll Components")
@@ -716,7 +898,7 @@ class TestPlotBowtie(unittest.TestCase):
 
         self.plot_graph(graph, name)
         duration = (time.time() - start_time)
-        print("Plotting Test End:\tAll Components\t(%.2fs)\n" %duration)
+        print("Plotting Test End:\tAll Components\t(%.2fs)\n" % duration)
 
     def plot_graph(self, graph, testcase):
         """
@@ -741,7 +923,7 @@ class TestPlotBowtie(unittest.TestCase):
             gc.compute()
         # create Plotting instance and call the plotting method
         plotting = Plotting(graphs)
-        plotting.plot_bowtie(testcase, show_sections=False, show_legends=False, save_graph_file=False)
+        plotting.plot_bowtie(testcase, show_sections=True, show_legends=False)
 
 if __name__ == '__main__':
     def test_stats():
@@ -754,17 +936,21 @@ if __name__ == '__main__':
         p = TestPlotBowtie('test_tiny')
 
         # uncomment the test-cases you want to run
-        p.test_tiny()
-        p.test_small()
-        p.test_tube()
-        p.test_big_in()
-        p.test_big_scc()
-        p.test_big_out()
-        p.test_10nodes_in_scc_out()
-        p.test_20nodes_in_scc_out()
-        p.test_30nodes_in_scc_out()
-        p.test_40nodes_in_scc_out()
-        p.test_all_components()
+        #p.test_tiny()
+        #p.test_small()
+        p.test_ultra_short_tube()
+        p.test_short_tube()
+        p.test_medium_tube()
+        p.test_long_tube()
+        p.test_ultra_long_tube()
+        #p.test_big_in()
+        #p.test_big_scc()
+        #p.test_big_out()
+        #p.test_10nodes_in_scc_out()
+        #p.test_20nodes_in_scc_out()
+        #p.test_30nodes_in_scc_out()
+        #p.test_40nodes_in_scc_out()
+        #p.test_all_components()
         #p.test_grow_in()
         #p.test_grow_in_scc_out()
         #p.test_grow_shrink()
